@@ -162,14 +162,21 @@ shinyServer(function(input, output, session){
     isolate(
       pctileSummary()
     )
-  }, options = list(searching = FALSE,
-                    lengthChange = FALSE)) 
+  }) 
+  
+  output$downloadData <- downloadHandler(
+    filename = "simulated_percentiles.csv",
+    content = function(file){
+      write.csv(pctileSummary(), file, row.names = FALSE)
+    }
+  )
     
   observe({
     mkt.curvelist <- switch(input$mkt,
                             ERCOT = c('ZONE N', 'ZONE H'),
                             PJM = c ('WESTRT'))
     updateCheckboxGroupInput(session, "curvelist", choices = mkt.curvelist)
+    
   })
   
 })
