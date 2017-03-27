@@ -165,9 +165,10 @@ shinyServer(function(input, output, session){
       pricePercentile <- as.data.table(simOutput())
       pricePercentile <- pricePercentile[, list(`5th` = round(quantile(Price, .05), digits = 2),
                                                 `10th` = round(quantile(Price, .1), digits = 2),
-                                                `50th` = round(quantile(Price, 0.5), digits = 2),
+                                                # `50th` = round(quantile(Price, 0.5), digits = 2),
                                                 `95th` = round(quantile(Price, 0.9), digits = 2),
-                                                `99th`= round(quantile(Price, 0.99), digits = 2)),
+                                                `99th`= round(quantile(Price, 0.99), digits = 2),
+                                                mean = round(mean(Price), digits = 2)),
                                          by = c('Component', 'Delmo', 'Segment')]
       return(pricePercentile)
     }

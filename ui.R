@@ -7,7 +7,8 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                    "Risk Scenario Simulation",
                    tabPanel("Curves simulated",
                             sidebarPanel(
-                              helpText("Select from main portfolio curves and simulation parameters"),
+                              helpText("Select from main portfolio curves and simulation parameters;
+                                       Note that number of simulations below 1000 has noticeable non-convergence to forwards."),
                               sliderInput("numsimslider", label = h4("Number of Sims"),
                                           min = 200, max = 2000, step = 200, value = 500),
                               dateRangeInput("curvedaterange", label = h4("Range of Forward Curve Dates"),
