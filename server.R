@@ -5,12 +5,6 @@ library(scales)
 library(data.table)
 library(stringr)
 
-# simWrapper <- function(nsims, curve.date.begin, curve.date.end, start_date, 
-#                        end_date, market, component){
-#   
-# 
-# }
-
 shinyServer(function(input, output, session){
 
   simOutput <- reactive({
@@ -133,6 +127,16 @@ shinyServer(function(input, output, session){
     
   })
   
+  terminalDist <- reactive({
+    if(input$goButton1 == 0)
+      return()
+
+    sim.prices.terminal <- as.data.table(simOutput())
+    sim.prices.terminal <- sim.prices.terminal[Delmo == max(Delmo), ]
+    sim.prices.terminal <- sim.prices.terminal[, meanPrice := mean(Price), by = c('Component', 'Segment')]
+    return(sim.prices.terminal)
+  })
+
   output$pricePlot <- renderPlot({
     
     if(input$goButton1 == 0)
@@ -140,18 +144,30 @@ shinyServer(function(input, output, session){
 
     isolate(
       ggplot(selectPaths(), aes(x = Delmo, y = Price, group = SimNo, color = SimNo)) + 
-      geom_line() + facet_grid(Component + Segment ~., scales = 'free_y') + theme(legend.position = 'none')
+      geom_line() + facet_grid(Component + Segment ~., scales = 'free_y') + theme(legend.position = 'none') +
+        ggtitle('First 50 paths of the simulations')
+    )
+  })
+  
+  output$distPlot <- renderPlot({
+    if(input$goButton1 == 0)
+      return()
+    isolate(
+      ggplot(terminalDist(), aes(x = Price)) + geom_histogram() +
+        geom_vline(aes(xintercept = meanPrice), color = 'red', linetype = 'dashed') +
+        facet_grid(. ~ Component + Segment, scales = 'free_x') +
+        ggtitle('Distribution of terminal prices (last forward month) w/ mean')
     )
   })
   
   pctileSummary <- reactive({
     if(input$tblout){
       pricePercentile <- as.data.table(simOutput())
-      pricePercentile <- pricePercentile[, list(`5th` = quantile(Price, .05),
-                                                `10th` = quantile(Price, .1),
-                                                `50th` = quantile(Price, 0.5),
-                                                `95th` = quantile(Price, 0.9),
-                                                `99th`= quantile(Price, 0.99)),
+      pricePercentile <- pricePercentile[, list(`5th` = round(quantile(Price, .05), digits = 2),
+                                                `10th` = round(quantile(Price, .1), digits = 2),
+                                                `50th` = round(quantile(Price, 0.5), digits = 2),
+                                                `95th` = round(quantile(Price, 0.9), digits = 2),
+                                                `99th`= round(quantile(Price, 0.99), digits = 2)),
                                          by = c('Component', 'Delmo', 'Segment')]
       return(pricePercentile)
     }
@@ -162,12 +178,19 @@ shinyServer(function(input, output, session){
     isolate(
       pctileSummary()
     )
-  }) 
+  }, options = list(pageLength = 10)) 
   
-  output$downloadData <- downloadHandler(
+  output$downloadPct <- downloadHandler(
     filename = "simulated_percentiles.csv",
-    content = function(file){
-      write.csv(pctileSummary(), file, row.names = FALSE)
+    content = function(file1){
+      write.csv(pctileSummary(), file1, row.names = FALSE)
+    }
+  )
+  
+  output$downloadSim <- downloadHandler(
+    filename = "simulated_prices.csv",
+    content = function(file2){
+      write.csv(simOutput(), file2, row.names = FALSE)
     }
   )
     

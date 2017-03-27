@@ -11,7 +11,7 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                               sliderInput("numsimslider", label = h4("Number of Sims"),
                                           min = 200, max = 2000, step = 200, value = 500),
                               dateRangeInput("curvedaterange", label = h4("Range of Forward Curve Dates"),
-                                             start = '2016-11-01', end = as.character(Sys.Date() - 1)),
+                                             start = '2016-11-01', end = as.character(Sys.Date() - 3)),
                               dateRangeInput("simrangemonth", label = h4("Range of Forward Months to Simulate"),
                                              start = '2018-01-01', end = '2018-12-01'),
                               selectInput("mkt", "Market", c('ERCOT', 'PJM'),
@@ -19,11 +19,15 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                               checkboxGroupInput("curvelist", "Select components in that market:", choices = c("")),
                               checkboxInput("tblout", "include table with select percentiles of simulated prices", value = FALSE),
                               actionButton("goButton1", "Start"),
-                              downloadButton('downloadData', 'Download')
+                              downloadButton('downloadPct', 'Download Percentiles'),
+                              downloadButton('downloadSim', 'Download All Simulations')
                               ),
                             mainPanel(
                               tabsetPanel(
-                                tabPanel("plot of simulated curves (50 paths)", plotOutput("pricePlot")),
+                                tabPanel("plots of simulated curves", 
+                                         fluidRow(
+                                           column(10, plotOutput("pricePlot")),
+                                           column(10, plotOutput("distPlot")))),
                                 tabPanel("table with select percentiles", dataTableOutput("pctileTbl"))
                               )
                             )
