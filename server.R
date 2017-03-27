@@ -47,8 +47,8 @@ shinyServer(function(input, output, session){
     # pull forward power
     pwr.curves <- futures.pwr.multi.rng.w(curve.date.begin, curve.date.end,
                                           first.month, month.used[numofmonth],
-                                          list(market),
-                                          list(component))
+                                          rep(market, length(component)),
+                                          component)
     
     pwr.curves <- melt(pwr.curves, id.vars = c('Date', 'Market', 'Component', 'Delmo'), 
                        variable.name = 'Segment', value.name = 'Price')
@@ -78,8 +78,8 @@ shinyServer(function(input, output, session){
     
     price.fwd <- curves.comb.pivot[which(curves.comb.pivot$Date == curve.date.end), -1]
     vol.fwd <- monthlyPkVol.multi(curve.date.end, month.used[numofmonth],
-                                  list(market, 'NYMEX'),
-                                  list(component,'NG'))
+                                  c(rep(market, length(component)), 'NYMEX'),
+                                  c(component,'NG'))
     # trim not needed volatilities
     vol.fwd <- vol.fwd[which(vol.fwd$DELMO %in% month.used),]
     vol.fwd <- mutate(vol.fwd, SEGMENT = ifelse(MARKET %in% c('NYMEX '), 'rtc', 'pk'))
