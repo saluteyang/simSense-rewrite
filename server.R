@@ -22,6 +22,7 @@ shinyServer(function(input, output, session){
     
     market <- input$mkt
     component <- input$curvelist
+
     
     ### end of input variables #####
     
@@ -121,6 +122,19 @@ shinyServer(function(input, output, session){
                                    type = 'left')
     return(sim.prices.final.long)
     })
+  
+  aggregation <- reactive({
+    if (input$aggreg)
+    aggregDist <- as.data.table(simOutput())
+    aggregDist <- aggregDist[Delmo >= input$aggrangemonth[1] & Delmo <= input$aggrangemonth[2], ]
+    aggregDist <- aggregDist[, {
+      Strip_Price = mean(Price)
+      list(Strip_Price = Strip_Price)},
+      by = .(Component, Segment, SimNo)]
+    aggregDist <- aggregDist[, MeanOfPeriod := mean(Strip_Price),
+                             by = .(Component, Segment)]
+    return(aggregDist)
+  })  
 
   selectPaths <- reactive({
     if(input$goButton1 == 0)
@@ -167,6 +181,18 @@ shinyServer(function(input, output, session){
     )
   })
   
+  output$aggDistPlot <- renderPlot({
+    if(input$goButton1 == 0)
+      return()
+    isolate(
+      ggplot(aggregation(), aes(x = Strip_Price)) + geom_histogram() + 
+        geom_vline(aes(xintercept = MeanOfPeriod), color = 'red', linetype = 'dashed') +
+        facet_grid(. ~ Component + Segment, scales = 'free')
+
+    )
+    
+  })
+  
   pctileSummary <- reactive({
     if(input$tblout){
       pricePercentile <- as.data.table(simOutput())
@@ -181,12 +207,32 @@ shinyServer(function(input, output, session){
     }
   })
   
+  pctileAggSummary <- reactive({
+    if(input$aggreg){
+      aggregationPercentile <- as.data.table(aggregation())
+      aggregationPercentile <- aggregationPercentile[, list(`5th` = round(quantile(Strip_Price, .05), digits = 2),
+                                                            `10th` = round(quantile(Strip_Price, .1), digits = 2),
+                                                            `95th` = round(quantile(Strip_Price, 0.9), digits = 2),
+                                                            `99th`= round(quantile(Strip_Price, 0.99), digits = 2),
+                                                            mean = round(mean(Strip_Price), digits = 2)),
+                                                     by = c('Component', 'Segment')]
+      return(aggregationPercentile)
+    }
+  })
+  
   output$pctileTbl <- renderDataTable({
     input$goButton1
     isolate(
       pctileSummary()
     )
-  }, options = list(pageLength = 10)) 
+  }, options = list(pageLength = 10))
+  
+  output$aggregTbl <- renderDataTable({
+    input$goButton1
+    isolate(
+      pctileAggSummary()
+      )
+  }, option = list(pageLength = 5))
   
   output$downloadPct <- downloadHandler(
     filename = function(){
@@ -203,6 +249,15 @@ shinyServer(function(input, output, session){
       },
     content = function(file2){
       write.csv(simOutput(), file2, row.names = FALSE)
+    }
+  )
+  
+  output$downloadAgg <- downloadHandler(
+    filename = function(){
+      paste("simulated_prices_aggregated", Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file3){
+      write.csv(aggregation(), file3, row.names = FALSE)
     }
   )
     

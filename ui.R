@@ -20,10 +20,16 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                               selectInput("mkt", "Market", c('ERCOT', 'PJM'),
                                           selected = 'ERCOT'),
                               checkboxGroupInput("curvelist", "Select components in that market:", choices = c("")),
+                              dateRangeInput("aggrangemonth", label = h4("Select strip of aggregation (optional)"),
+                                             start = '2017-07-01', end = '2017-08-01'),
+                              helpText("Make sure the aggregation period is included in the simulation period
+                                       selected above"),
                               checkboxInput("tblout", "include table with select percentiles of simulated prices", value = FALSE),
+                              checkboxInput("aggreg", "include custom range aggregation", value = FALSE),
                               actionButton("goButton1", "Start"),
                               downloadButton('downloadPct', 'Download Percentiles'),
-                              downloadButton('downloadSim', 'Download All Simulations')
+                              downloadButton('downloadSim', 'Download All Simulations'),
+                              downloadButton('downloadAgg', 'Download Strip Simulations')
                               ),
                             mainPanel(
                               tabsetPanel(
@@ -31,7 +37,12 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                                          fluidRow(
                                            column(10, plotOutput("pricePlot")),
                                            column(10, plotOutput("distPlot")))),
-                                tabPanel("table with select percentiles", dataTableOutput("pctileTbl"))
+                                tabPanel("table with select percentiles", dataTableOutput("pctileTbl")),
+                                tabPanel("distribution of prices aggregated by strip",
+                                         fluidRow(
+                                           column(10, plotOutput("aggDistPlot")),
+                                           column(10, dataTableOutput("aggregTbl"))
+                                         ))
                               )
                             )
                     )
