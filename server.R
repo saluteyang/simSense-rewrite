@@ -29,7 +29,7 @@ shinyServer(function(input, output, session){
     # first forward month
     first.month <- start_date
     # forward delivery months included
-    month.used <- seq(as.Date(first.month), by = "month", length.out = numofmonth - 1)
+    month.used <- seq(as.Date(first.month), by = "month", length.out = as.integer(numofmonth))
     
     # date matrix
     out <- expandDates(start_date, end_date)$time.long
@@ -150,8 +150,10 @@ shinyServer(function(input, output, session){
     isolate(
       ggplot() + geom_line(data = selectPaths(), aes(x = Delmo, y = Price, group = SimNo, color = SimNo)) +
         geom_line(data = selectPaths(), aes(x = Delmo, y = Forward_Price),
-                  color = 'black', size = 1, position = 'identity') +
-        facet_grid(Component + Segment ~., scales = 'free_y') + theme(legend.position = 'none') )
+                  color = 'black', size = 1, position = 'identity') + 
+        scale_x_date(expand = c(0,0), date_breaks = '1 month', labels = date_format('%y-%m')) +
+        facet_grid(Component + Segment ~., scales = 'free_y') + 
+        theme(legend.position = 'none', axis.text.x = element_text(angle = 90)) )
   })
   
   output$distPlot <- renderPlot({
