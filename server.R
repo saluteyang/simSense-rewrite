@@ -114,6 +114,11 @@ shinyServer(function(input, output, session){
                               Monthsout = as.Date(Monthsout),
                               NewComponent = NULL)
     sim.prices.final.long <- subset(sim.prices.long, Delmo == Monthsout) # filter out expired contracts
+    price.fwd.bind <- cbind.data.frame(str_match(names(price.fwd), "^(.*)_(.*)_(.*)$")[, -1], unname(t(price.fwd)))
+    colnames(price.fwd.bind) <- c('Component', 'Delmo', 'Segment', 'Forward_Price')
+    price.fwd.bind <- mutate(price.fwd.bind, Delmo = as.Date(Delmo))
+    sim.prices.final.long <- join(sim.prices.final.long, price.fwd.bind, by = c('Component', 'Delmo', 'Segment'),
+                                   type = 'left')
     return(sim.prices.final.long)
     })
 
@@ -143,10 +148,10 @@ shinyServer(function(input, output, session){
       return()
 
     isolate(
-      ggplot(selectPaths(), aes(x = Delmo, y = Price, group = SimNo, color = SimNo)) + 
-      geom_line() + facet_grid(Component + Segment ~., scales = 'free_y') + theme(legend.position = 'none') +
-        ggtitle('First 50 paths of the simulations')
-    )
+      ggplot() + geom_line(data = selectPaths(), aes(x = Delmo, y = Price, group = SimNo, color = SimNo)) +
+        geom_line(data = selectPaths(), aes(x = Delmo, y = Forward_Price),
+                  color = 'black', size = 1, position = 'identity') +
+        facet_grid(Component + Segment ~., scales = 'free_y') + theme(legend.position = 'none') )
   })
   
   output$distPlot <- renderPlot({
@@ -182,14 +187,18 @@ shinyServer(function(input, output, session){
   }, options = list(pageLength = 10)) 
   
   output$downloadPct <- downloadHandler(
-    filename = "simulated_percentiles.csv",
+    filename = function(){
+      paste("simulated_percentiles", Sys.Date(), ".csv", sep = "")
+    },
     content = function(file1){
       write.csv(pctileSummary(), file1, row.names = FALSE)
     }
   )
   
   output$downloadSim <- downloadHandler(
-    filename = "simulated_prices.csv",
+    filename = function(){
+      paste("simulated_prices", Sys.Date(), ".csv", sep = "")
+      },
     content = function(file2){
       write.csv(simOutput(), file2, row.names = FALSE)
     }
