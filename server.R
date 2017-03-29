@@ -22,7 +22,8 @@ shinyServer(function(input, output, session){
     
     market <- input$mkt
     component <- input$curvelist
-
+    # hrval <- input$hr
+    # vomval <- input$vom
     
     ### end of input variables #####
     
@@ -120,21 +121,11 @@ shinyServer(function(input, output, session){
     price.fwd.bind <- mutate(price.fwd.bind, Delmo = as.Date(Delmo))
     sim.prices.final.long <- join(sim.prices.final.long, price.fwd.bind, by = c('Component', 'Delmo', 'Segment'),
                                    type = 'left')
+    # sim.prices.final.long$HR <- hrval
+    # sim.prices.final.long$VOM <- vomval
     return(sim.prices.final.long)
     })
-  
-  aggregation <- reactive({
-    if (input$aggreg)
-    aggregDist <- as.data.table(simOutput())
-    aggregDist <- aggregDist[Delmo >= input$aggrangemonth[1] & Delmo <= input$aggrangemonth[2], ]
-    aggregDist <- aggregDist[, {
-      Strip_Price = mean(Price)
-      list(Strip_Price = Strip_Price)},
-      by = .(Component, Segment, SimNo)]
-    aggregDist <- aggregDist[, MeanOfPeriod := mean(Strip_Price),
-                             by = .(Component, Segment)]
-    return(aggregDist)
-  })  
+
 
   selectPaths <- reactive({
     if(input$goButton1 == 0)
@@ -155,6 +146,36 @@ shinyServer(function(input, output, session){
     sim.prices.terminal <- sim.prices.terminal[, meanPrice := mean(Price), by = c('Component', 'Segment')]
     return(sim.prices.terminal)
   })
+  
+  
+  aggregation <- reactive({
+    if (input$aggreg)
+    aggregDist <- as.data.table(simOutput())
+    aggregDist <- aggregDist[Delmo >= input$aggrangemonth[1] & Delmo <= input$aggrangemonth[2], ]
+    aggregDist <- aggregDist[, {
+      Strip_Price = mean(Price)
+      list(Strip_Price = Strip_Price)},
+      by = .(Component, Segment, SimNo)]
+    aggregDist <- aggregDist[, MeanOfPeriod := mean(Strip_Price),
+                             by = .(Component, Segment)]
+    return(aggregDist)
+  })  
+  
+  spreadSummary <- reactive({
+    if(input$spreadopt){
+      forspread <- as.data.table(simOutput())
+      forspread$HR <- input$hr
+      forspread$VOM <- input$vom
+      forspread1 <- forspread[Component != 'NG',]
+      forspread2 <- forspread[Component == 'NG',]
+      forspread2 <- dplyr::select(forspread2, Delmo, SimNo, Price)
+      setnames(forspread2, 'Price', 'gasPrice')
+      forspread.fin <- join(forspread1, forspread2, by = c('Delmo', 'SimNo'), type = 'left')
+      forspread.fin <- forspread.fin[, optPrice := ifelse(Price - gasPrice * HR - VOM > 0, Price - gasPrice * HR - VOM, 0)]
+      return(forspread.fin)
+    }
+  })
+
 
   output$pricePlot <- renderPlot({
     
@@ -182,7 +203,7 @@ shinyServer(function(input, output, session){
   })
   
   output$aggDistPlot <- renderPlot({
-    if(input$goButton1 == 0)
+    if(input$goButton1 == 0 | input$aggreg == 0)
       return()
     isolate(
       ggplot(aggregation(), aes(x = Strip_Price)) + geom_histogram() + 
@@ -192,6 +213,17 @@ shinyServer(function(input, output, session){
     )
     
   })
+  
+  
+  # output$spreadPlot <- renderPlot({
+  #   if(input$goButton1 == 0)
+  #     return()
+  #   isolate(
+  #     ggplot(spreadSummary(), aes(x = optPrice)) + geom_histogram() +
+  #       facet_grid(Component + Delmo + Segment ~., scales = 'free') +
+  #       theme(legend.position = 'none')
+  #   )
+  # })
   
   pctileSummary <- reactive({
     if(input$tblout){
@@ -219,6 +251,18 @@ shinyServer(function(input, output, session){
       return(aggregationPercentile)
     }
   })
+
+  bymonthSpread <- reactive({
+  if(input$spreadopt){
+    spreadOptMonth <- as.data.table(spreadSummary())
+    spreadOptMonth <- spreadOptMonth[, list(`5th` = round(quantile(optPrice, .05), digits = 2),
+                                            `10th` = round(quantile(optPrice, .1), digits = 2),
+                                            `95th` = round(quantile(optPrice, 0.9), digits = 2),
+                                            `99th`= round(quantile(optPrice, 0.99), digits = 2),
+                                            mean = round(mean(optPrice), digits = 2)),
+                                     by = c('Component', 'Delmo', 'Segment')]
+  }  
+  })
   
   output$pctileTbl <- renderDataTable({
     input$goButton1
@@ -233,6 +277,13 @@ shinyServer(function(input, output, session){
       pctileAggSummary()
       )
   }, option = list(pageLength = 5))
+  
+  output$spreadTbl <- renderDataTable({
+    input$goButton1
+    isolate(
+      bymonthSpread()
+    )
+  }, option = list(pageLength = 10))
   
   output$downloadPct <- downloadHandler(
     filename = function(){
@@ -258,6 +309,15 @@ shinyServer(function(input, output, session){
     },
     content = function(file3){
       write.csv(aggregation(), file3, row.names = FALSE)
+    }
+  )
+  
+  output$downloadSprd <- downloadHandler(
+    filename = function(){
+      paste("simulated_spreadopt_value", Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file4){
+      write.csv(spreadSummary(), file4, row.names = FALSE)
     }
   )
     

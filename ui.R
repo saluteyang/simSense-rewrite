@@ -26,10 +26,16 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                                        selected above"),
                               checkboxInput("tblout", "include table with select percentiles of simulated prices", value = FALSE),
                               checkboxInput("aggreg", "include custom range aggregation", value = FALSE),
+                              checkboxInput("spreadopt", "include valuation of dummy spread option", value = FALSE),
+                              sliderInput("hr", label = h4("Heat rate for spread option"),
+                                          min = 4, max = 15, step = 0.5, value = 10),
+                              sliderInput("vom", label = h4("VOM for spread option"),
+                                          min = 0, max = 10, step = 0.5, value = 2),
                               actionButton("goButton1", "Start"),
                               downloadButton('downloadPct', 'Download Percentiles'),
                               downloadButton('downloadSim', 'Download All Simulations'),
-                              downloadButton('downloadAgg', 'Download Strip Simulations')
+                              downloadButton('downloadAgg', 'Download Strip Simulations'),
+                              downloadButton('downloadSprd', 'Download Spread Option Simulations')
                               ),
                             mainPanel(
                               tabsetPanel(
@@ -42,7 +48,8 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                                          fluidRow(
                                            column(10, plotOutput("aggDistPlot")),
                                            column(10, dataTableOutput("aggregTbl"))
-                                         ))
+                                         )),
+                                tabPanel("distibution of custom spread option", dataTableOutput('spreadTbl'))
                               )
                             )
                     )
