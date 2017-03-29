@@ -49,7 +49,10 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                                            column(10, plotOutput("aggDistPlot")),
                                            column(10, dataTableOutput("aggregTbl"))
                                          )),
-                                tabPanel("distibution of custom spread option", dataTableOutput('spreadTbl'))
+                                tabPanel("distibution of custom spread option", 
+                                         fluidRow(
+                                           column(10, dataTableOutput('spreadTbl')),
+                                           column(10, plotOutput('spreadPeriodPlot'))))
                               )
                             )
                     )

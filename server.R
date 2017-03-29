@@ -176,7 +176,31 @@ shinyServer(function(input, output, session){
     }
   })
 
-
+  
+  byperiodSpread <- reactive({
+    if(input$spreadopt & input$aggreg)
+    spreadOptPeriod <- as.data.table(spreadSummary())
+    spreadOptPeriod <- spreadOptPeriod[Delmo >= input$aggrangemonth[1] & Delmo <= input$aggrangemonth[2], ]
+    # spreadDates <- listBizday(input$aggrangemonth[1], 
+    #                           as.Date(timeDate::timeLastDayInMonth(input$aggrangemonth[2])), dateformat = TRUE)
+    # spreadDateJoin <- data.frame(Delmo = as.Date(timeDate::timeFirstDayInMonth(spreadDates)), 
+    #                              Dates = spreadDates)
+    spreadDates <- expandDates(input$aggrangemonth[1], as.Date(timeDate::timeLastDayInMonth(input$aggrangemonth[2])))$time.segment
+    spreadDates <- mutate(spreadDates, sumOffPk = sum7x8 + sum2x16)
+    spreadDates <- spreadDates[, c('Delmo', 'sumPk', 'sumOffPk')]
+    spreadDates <- rename(spreadDates, c('sumPk' = 'pkPrice', 'sumOffPk' = 'opPrice'))
+    spreadDates <- melt(spreadDates, measure = c('pkPrice', 'opPrice'), variable.name = 'Segment', value.name = 'Hrs')
+    spreadOptPeriod <- join(spreadOptPeriod, spreadDates, by = c('Delmo', 'Segment'), type = 'left')
+    spreadOptPeriod <- spreadOptPeriod[, sumOptPrice := optPrice * Hrs]
+    spreadOptPeriod <- spreadOptPeriod[, {
+      monthPayoff = sum(sumOptPrice)
+      list(monthPayoff = monthPayoff)
+    },
+    by = .(Delmo, Component, SimNo)]
+    spreadOptPeriod <- spreadOptPeriod[, meanMonthPayoff := mean(monthPayoff), by = .(Delmo, Component)]
+    return(spreadOptPeriod)
+  })
+  
   output$pricePlot <- renderPlot({
     
     if(input$goButton1 == 0)
@@ -214,6 +238,17 @@ shinyServer(function(input, output, session){
     
   })
   
+  output$spreadPeriodPlot <- renderPlot({
+    if(input$goButton1 == 0 | input$spreadopt == 0 | input$aggreg == 0)
+      return()
+    isolate(
+      ggplot(byperiodSpread(), aes(x = monthPayoff)) + geom_histogram() +
+        geom_vline(aes(xintercept = meanMonthPayoff), color = 'red', linetype = 'dashed') +
+        facet_grid (.~ Component + Delmo, scales = 'free') + 
+        labs(caption = 'When both strip and spread option are specified, the distribution gives
+             by power curve and month, the profitability of a hypothetical 1 MW gas plant (all segment hours).')
+    )
+  })
   
   # output$spreadPlot <- renderPlot({
   #   if(input$goButton1 == 0)
@@ -263,6 +298,7 @@ shinyServer(function(input, output, session){
                                      by = c('Component', 'Delmo', 'Segment')]
   }  
   })
+
   
   output$pctileTbl <- renderDataTable({
     input$goButton1
@@ -283,7 +319,7 @@ shinyServer(function(input, output, session){
     isolate(
       bymonthSpread()
     )
-  }, option = list(pageLength = 10))
+  }, option = list(pageLength = 5))
   
   output$downloadPct <- downloadHandler(
     filename = function(){
