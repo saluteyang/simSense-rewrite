@@ -34,6 +34,7 @@ shinyServer(function(input, output, session){
     month.used <- seq(as.Date(first.month), by = "month", length.out = as.integer(numofmonth))
     
     # date matrix
+    end_date <- timeDate::timeLastDayInMonth(end_date)
     out <- expandDates(start_date, end_date)$time.long
     out.days <- expandDates(start_date, end_date)$time.days
     period.pre <- as.numeric(as.Date(first.month) - as.Date(curve.date.end))/365
@@ -41,6 +42,7 @@ shinyServer(function(input, output, session){
     period.rtc.inter <- cumsum(out.days$numTotDays)
     # day count convention to be consistent with option quotes
     period.pk <- c(period.pre, period.rtc.inter/365 + period.pre)
+    period.pk <- period.pk[-length(period.pk)]
     
     ## price generation process starts here #######
     set.seed(123)
