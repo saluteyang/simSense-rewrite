@@ -268,8 +268,8 @@ shinyServer(function(input, output, session){
       pricePercentile <- pricePercentile[, list(`5th` = round(quantile(Price, .05), digits = 2),
                                                 `10th` = round(quantile(Price, .1), digits = 2),
                                                 # `50th` = round(quantile(Price, 0.5), digits = 2),
-                                                `95th` = round(quantile(Price, 0.9), digits = 2),
-                                                `99th`= round(quantile(Price, 0.99), digits = 2),
+                                                `90th` = round(quantile(Price, 0.9), digits = 2),
+                                                `95th`= round(quantile(Price, 0.95), digits = 2),
                                                 mean = round(mean(Price), digits = 2)),
                                          by = c('Component', 'Delmo', 'Segment')]
       return(pricePercentile)
@@ -281,8 +281,8 @@ shinyServer(function(input, output, session){
       aggregationPercentile <- as.data.table(aggregation())
       aggregationPercentile <- aggregationPercentile[, list(`5th` = round(quantile(Strip_Price, .05), digits = 2),
                                                             `10th` = round(quantile(Strip_Price, .1), digits = 2),
-                                                            `95th` = round(quantile(Strip_Price, 0.9), digits = 2),
-                                                            `99th`= round(quantile(Strip_Price, 0.99), digits = 2),
+                                                            `90th` = round(quantile(Strip_Price, 0.9), digits = 2),
+                                                            `95th`= round(quantile(Strip_Price, 0.95), digits = 2),
                                                             mean = round(mean(Strip_Price), digits = 2)),
                                                      by = c('Component', 'Segment')]
       return(aggregationPercentile)
@@ -294,8 +294,8 @@ shinyServer(function(input, output, session){
     spreadOptMonth <- as.data.table(spreadSummary())
     spreadOptMonth <- spreadOptMonth[, list(`5th` = round(quantile(optPrice, .05), digits = 2),
                                             `10th` = round(quantile(optPrice, .1), digits = 2),
-                                            `95th` = round(quantile(optPrice, 0.9), digits = 2),
-                                            `99th`= round(quantile(optPrice, 0.99), digits = 2),
+                                            `90th` = round(quantile(optPrice, 0.9), digits = 2),
+                                            `95th`= round(quantile(optPrice, 0.95), digits = 2),
                                             mean = round(mean(optPrice), digits = 2)),
                                      by = c('Component', 'Delmo', 'Segment')]
   }  
@@ -424,8 +424,8 @@ shinyServer(function(input, output, session){
       ascPricePercentile <- as.data.table(ascSimOutput())
       ascPricePercentile <- ascPricePercentile[, list(`5th` = round(quantile(PRICE, .05), digits = 2),
                                                 `10th` = round(quantile(PRICE, .1), digits = 2),
-                                                `95th` = round(quantile(PRICE, 0.9), digits = 2),
-                                                `99th`= round(quantile(PRICE, 0.99), digits = 2),
+                                                `90th` = round(quantile(PRICE, 0.9), digits = 2),
+                                                `95th`= round(quantile(PRICE, 0.95), digits = 2),
                                                 mean = round(mean(PRICE), digits = 2)),
                                          by = c('DESCRIPTION', 'DELIVERYDATE')]
       return(ascPricePercentile)
