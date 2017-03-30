@@ -41,7 +41,6 @@ shinyServer(function(input, output, session){
     period.rtc.inter <- cumsum(out.days$numTotDays)
     # day count convention to be consistent with option quotes
     period.pk <- c(period.pre, period.rtc.inter/365 + period.pre)
-    period.pk <- period.pk[-length(period.pk)] # time increments to forward steps
     
     ## price generation process starts here #######
     set.seed(123)
@@ -212,7 +211,8 @@ shinyServer(function(input, output, session){
                   color = 'black', size = 1, position = 'identity') + 
         scale_x_date(expand = c(0,0), date_breaks = '1 month', labels = date_format('%y-%m')) +
         facet_grid(Component + Segment ~., scales = 'free_y') + 
-        theme(legend.position = 'none', axis.text.x = element_text(angle = 90)) )
+        theme(legend.position = 'none', axis.text.x = element_text(angle = 90)) 
+      )
   })
   
   output$distPlot <- renderPlot({
@@ -363,6 +363,87 @@ shinyServer(function(input, output, session){
                             PJM = c ('WESTRT'))
     updateCheckboxGroupInput(session, "curvelist", choices = mkt.curvelist)
     
+    ascmkt.asccurvelist <- switch(input$ascmkt,
+                                  ERCOT = c('Fwd\\Coal\\PRB\\PRB\\8400\\0.8',
+                                            'Fwd\\Pwr\\OffPk\\ERCOT\\Houston',
+                                             'Fwd\\Pwr\\OnPk\\ERCOT\\Houston'),
+                                  PJM = c('Fwd\\Coal\\NAPP\\MGA\\13000\\3.4',
+                                          'Fwd\\Gas\\Tetco M3',
+                                          'Fwd\\Pwr\\OnPk\\PJM\\Western Hub',
+                                          'Fwd\\Pwr\\OffPk\\PJM\\Western Hub'))
+    updateCheckboxGroupInput(session, "asccurvelist", choices = ascmkt.asccurvelist)
   })
+  
+  ascSimOutput <- reactive({
+    if(input$goButton2 == 0)
+      return()
+    studyID <- input$studynum
+    rptdate <- input$studydate
+    ascendCurvelist <- input$asccurvelist
+    ascendSims <- ascFwdSimQuery(studyID = studyID, curvelist = ascendCurvelist, rptdate = rptdate)
+    ascendSims <- as.data.table(ascendSims)
+    ascendSims <- ascendSims[DELIVERYDATE <= '2019-12-01', c('JOBID', 'DELIVERYDATE', 'WXSIMREP', 'PRICE', 'DESCRIPTION')]
+    ascendSims[, DELIVERYDATE := as.Date(DELIVERYDATE)]
+    # ascendSims[, SHORTDESC := str_sub(DESCRIPTION, start = max(unlist(gregexpr("\\\\", DESCRIPTION))) + 1), by = .(DESCRIPTION)]
+    return(ascendSims)
+  })
+  
+  selectPathsAscend <- reactive({
+    if(input$goButton2 == 0)
+      return()
+    
+    ascendSimsSelect <- as.data.table(ascSimOutput())
+    ascendSimsSelect <- ascendSimsSelect[, meanPRICE := mean(PRICE), by = .(DELIVERYDATE, DESCRIPTION)]
+    ascendSimsSelect <- ascendSimsSelect[WXSIMREP <= 50, ]
+    ascendSimsSelect <- ascendSimsSelect[, SHORTDESC := paste0(
+      str_sub(DESCRIPTION, end = unlist(gregexpr("\\\\", DESCRIPTION))[2]), "\n",
+      str_sub(DESCRIPTION, start = unlist(gregexpr("\\\\", DESCRIPTION))[2] + 1)), by = .(DESCRIPTION)]
+    # ascendSimsSelect <- ascendSimsSelect[, .SD[1:50], by = list(DELIVERYDATE, DESCRIPTION)]
+    return(ascendSimsSelect)
+    
+  })
+  
+  output$ascPricePlot <- renderPlot({
+    if(input$goButton2 == 0)
+      return()
+    isolate(
+      ggplot() + geom_line(data = selectPathsAscend(), aes(x = DELIVERYDATE, y = PRICE, group = WXSIMREP, color = WXSIMREP)) +
+        geom_line(data = selectPathsAscend(), aes(x = DELIVERYDATE, y = meanPRICE),
+                  color = 'black', size = 1, position = 'identity') + 
+        scale_x_date(expand = c(0,0), date_breaks = '1 month', labels = date_format('%y-%m')) +
+        facet_grid(SHORTDESC ~ ., scales = 'free') + 
+        theme(legend.position = 'none', axis.text.x = element_text(angle = 90),
+              strip.text = element_text(margin = margin (.1, 0, .1, 0, "cm"))) 
+    )
+  })
+  
+  ascPctileSummary <- reactive({
+    if(input$asctblout){
+      ascPricePercentile <- as.data.table(ascSimOutput())
+      ascPricePercentile <- ascPricePercentile[, list(`5th` = round(quantile(PRICE, .05), digits = 2),
+                                                `10th` = round(quantile(PRICE, .1), digits = 2),
+                                                `95th` = round(quantile(PRICE, 0.9), digits = 2),
+                                                `99th`= round(quantile(PRICE, 0.99), digits = 2),
+                                                mean = round(mean(PRICE), digits = 2)),
+                                         by = c('DESCRIPTION', 'DELIVERYDATE')]
+      return(ascPricePercentile)
+    }
+  })
+  
+  output$ascPercentileTbl <- renderDataTable({
+    input$goButton2
+    isolate(
+      ascPctileSummary()
+    )
+  }, option = list(pageLength = 10))
+  
+  output$downloadAscend <- downloadHandler(
+    filename = function(){
+      paste("ascend_simulated_prices", Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file5){
+      write.csv(ascSimOutput(), file5, row.names = FALSE)
+    }
+  )
   
 })

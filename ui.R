@@ -5,7 +5,7 @@ library(shinythemes)
 
 shinyUI(navbarPage(theme = shinytheme("cerulean"),
                    "Risk Scenario Simulation",
-                   tabPanel("Curves simulated",
+                   tabPanel("Ad Hoc Forward Curve Simulations",
                             sidebarPanel(
                               helpText("Select from main portfolio curves and simulation parameters;
                                        Note that number of simulations below 1000 has noticeable non-convergence to forwards."),
@@ -55,7 +55,29 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                                            column(10, plotOutput('spreadPeriodPlot'))))
                               )
                             )
-                    )
+                    ),
+                   tabPanel("Ascend Forward Curve Simulations",
+                     sidebarPanel(
+                       helpText("Select from a list of simulated forward curves for a specific regional Ascend study."),
+                       numericInput("studynum", label = h4("Ascend Study ID"),
+                                    value = NULL),
+                       dateInput("studydate", label = h4("Ascend Study Run Date"),
+                                 value = as.character(Sys.Date() - 3)),
+                       selectInput("ascmkt", "Market", c('ERCOT', 'PJM'),
+                                   selected = 'ERCOT'),
+                       checkboxGroupInput("asccurvelist", "Select curves simulated in this study:", choices = c("")),
+                       checkboxInput("asctblout", "include table with select percentiles of simulated prices", value = FALSE),
+                       actionButton("goButton2", "Start"),
+                       downloadButton('downloadAscend', 'Download ascend output for the curves selected')
+                       ),
+                     mainPanel(
+                       tabsetPanel(
+                         tabPanel("plots of simulated curves",
+                                  plotOutput("ascPricePlot")),
+                         tabPanel("table with select percentiles",
+                                  dataTableOutput("ascPercentileTbl"))
+                       )
+                     )
+                     )
+                   )
                   )
-
-)
