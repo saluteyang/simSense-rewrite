@@ -1,4 +1,5 @@
 library(shiny)
+# library(plotly)
 library(aligne)
 library(ggplot2)
 library(scales)
@@ -11,6 +12,16 @@ shinyServer(function(input, output, session){
     
     if(input$goButton1 == 0)
       return()
+    
+    validate(
+      need(wday(as.Date(input$curvedaterange[2])) %in% (2:6), 
+           "Check that the ending curve date doesn't end on a weekend or holiday"),
+      need(as.Date(input$simrangemonth[1]) >= as.Date(timeDate::timeLastDayInMonth(as.Date(input$curvedaterange[2]))) + 1,
+           "Check that the first simulated forward month is after the month of the ending curve date"),
+      need(as.Date(input$aggrangemonth[1]) >= as.Date(input$simrangemonth[1]) & 
+                                                       as.Date(input$aggrangemonth[2]) <= as.Date(input$simrangemonth[2]),
+           "Check that the strip aggregation requested falls within the range of simulated months above")
+    )
     
     nsims <- input$numsimslider
     # period of forward prices used
@@ -208,12 +219,12 @@ shinyServer(function(input, output, session){
       return()
 
     isolate(
-      ggplot() + geom_line(data = selectPaths(), aes(x = Delmo, y = Price, group = SimNo, color = SimNo)) +
+      ggplot() + geom_line(data = selectPaths(), aes(x = Delmo, y = Price, group = SimNo), color = 'dodgerblue') +
         geom_line(data = selectPaths(), aes(x = Delmo, y = Forward_Price),
                   color = 'black', size = 1, position = 'identity') + 
         scale_x_date(expand = c(0,0), date_breaks = '1 month', labels = date_format('%y-%m')) +
         facet_grid(Component + Segment ~., scales = 'free_y') + 
-        theme(legend.position = 'none', axis.text.x = element_text(angle = 90)) 
+        theme(legend.position = 'none', axis.text.x = element_text(angle = 90))
       )
   })
   
@@ -409,7 +420,7 @@ shinyServer(function(input, output, session){
     if(input$goButton2 == 0)
       return()
     isolate(
-      ggplot() + geom_line(data = selectPathsAscend(), aes(x = DELIVERYDATE, y = PRICE, group = WXSIMREP, color = WXSIMREP)) +
+      ggplot() + geom_line(data = selectPathsAscend(), aes(x = DELIVERYDATE, y = PRICE, group = WXSIMREP), color = 'dodgerblue') +
         geom_line(data = selectPathsAscend(), aes(x = DELIVERYDATE, y = meanPRICE),
                   color = 'black', size = 1, position = 'identity') + 
         scale_x_date(expand = c(0,0), date_breaks = '1 month', labels = date_format('%y-%m')) +
