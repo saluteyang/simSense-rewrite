@@ -18,8 +18,9 @@ shinyServer(function(input, output, session){
            "Check that the ending curve date doesn't end on a weekend or holiday"),
       need(as.Date(input$simrangemonth[1]) >= as.Date(timeDate::timeLastDayInMonth(as.Date(input$curvedaterange[2]))) + 1,
            "Check that the first simulated forward month is after the month of the ending curve date"),
-      need(as.Date(input$aggrangemonth[1]) >= as.Date(input$simrangemonth[1]) & 
-                                                       as.Date(input$aggrangemonth[2]) <= as.Date(input$simrangemonth[2]),
+      need(input$aggreg == 0 | 
+             (as.Date(input$aggrangemonth[1]) >= as.Date(input$simrangemonth[1]) & 
+                                                       as.Date(input$aggrangemonth[2]) <= as.Date(input$simrangemonth[2])),
            "Check that the strip aggregation requested falls within the range of simulated months above")
     )
     
