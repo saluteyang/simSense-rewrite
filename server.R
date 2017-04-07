@@ -1,5 +1,5 @@
 library(shiny)
-# library(plotly)
+library(plotly)
 library(aligne)
 library(ggplot2)
 library(scales)
@@ -13,16 +13,20 @@ shinyServer(function(input, output, session){
     if(input$goButton1 == 0)
       return()
     
+    # validate user date inputs
     validate(
       need(wday(as.Date(input$curvedaterange[2])) %in% (2:6), 
            "Check that the ending curve date doesn't end on a weekend or holiday"),
-      need(as.Date(input$simrangemonth[1]) >= as.Date(timeDate::timeLastDayInMonth(as.Date(input$curvedaterange[2]))) + 1,
+      need(as.Date(input$simrangemonth[1]) >= 
+             as.Date(timeDate::timeLastDayInMonth(as.Date(input$curvedaterange[2]))) + 1,
            "Check that the first simulated forward month is after the month of the ending curve date"),
       need(input$aggreg == 0 | 
              (as.Date(input$aggrangemonth[1]) >= as.Date(input$simrangemonth[1]) & 
-                                                       as.Date(input$aggrangemonth[2]) <= as.Date(input$simrangemonth[2])),
+              as.Date(input$aggrangemonth[2]) <= as.Date(input$simrangemonth[2])),
            "Check that the strip aggregation requested falls within the range of simulated months above")
     )
+    
+    ### user input variables #####
     
     nsims <- input$numsimslider
     # period of forward prices used
@@ -31,11 +35,9 @@ shinyServer(function(input, output, session){
     # start and end date of spot dates
     start_date <- as.Date(input$simrangemonth[1])
     end_date <- as.Date(input$simrangemonth[2])
-    
-    market <- input$mkt
-    component <- input$curvelist
-    # hrval <- input$hr
-    # vomval <- input$vom
+    # curve market/component
+    market <- unlist(strsplit(input$mktcomp, '-'))[1]
+    component <- unlist(strsplit(input$mktcomp, '-'))[2]
     
     ### end of input variables #####
     
@@ -45,12 +47,10 @@ shinyServer(function(input, output, session){
     # forward delivery months included
     month.used <- seq(as.Date(first.month), by = "month", length.out = as.integer(numofmonth))
     
-    # date matrix
+    # day counts
     end_date <- timeDate::timeLastDayInMonth(end_date)
-    out <- expandDates(start_date, end_date)$time.long
     out.days <- expandDates(start_date, end_date)$time.days
     period.pre <- as.numeric(as.Date(first.month) - as.Date(curve.date.end))/365
-    period.pk.inter <- cumsum(out.days$numPkDays)
     period.rtc.inter <- cumsum(out.days$numTotDays)
     # day count convention to be consistent with option quotes
     period.pk <- c(period.pre, period.rtc.inter/365 + period.pre)
@@ -73,17 +73,15 @@ shinyServer(function(input, output, session){
                                first.month, month.used[numofmonth])
     ng.curve <- mutate(rename(ng.curve, c('NG' = 'rtcPrice')),
                        Market = "NYMEX", Component = "NG")
-    ng.curve <- melt(ng.curve, id.vars = c('Date', 'Market', 'Component', 'Delmo'), variable.name = 'Segment', value.name = 'Price')
-    
-    # coal.curve <- futures.fuel.rng(curve.date.begin, curve.date.end, first.month, month.used[numofmonth], 'PRB', 'BU8408')
-    # coal.curve <- mutate(coal.curve, Market = 'PRB', Component = 'BU8408', Segment = 'rtcPrice')
+    ng.curve <- melt(ng.curve, id.vars = c('Date', 'Market', 'Component', 'Delmo'), 
+                     variable.name = 'Segment', value.name = 'Price')
     
     curves.comb <- rbind.data.frame(pwr.curves, ng.curve) # coal.curve
     curves.comb$Component <- trimws(curves.comb$Component)
     curves.comb$Market <- NULL
     
     # make delmo as subscript of distinct commodities
-    curves.comb.pivot <- dcast(curves.comb, Date~Component + Delmo + Segment, value.var = 'Price') # dcast sorts columns lexically
+    curves.comb.pivot <- dcast(curves.comb, Date~Component + Delmo + Segment, value.var = 'Price')
     curves.comb.pivot <- cbind(dplyr::select(curves.comb.pivot[, order(colnames(curves.comb.pivot))], Date),
                                dplyr::select(curves.comb.pivot[, order(colnames(curves.comb.pivot))], -Date))
     curves.comb.pivot <- curves.comb.pivot[complete.cases(curves.comb.pivot),]
@@ -122,7 +120,9 @@ shinyServer(function(input, output, session){
                             variable.name = "SimNo", value.name = "Price")
     
     sim.prices.long <- rename(cbind.data.frame(sim.prices.long,
-                                               as.data.frame(str_match(sim.prices.long$NewComponent, "^(.*)_(.*)_(.*)$")[, -1])), # regular expression
+                                               as.data.frame(
+                                                 str_match(sim.prices.long$NewComponent, "^(.*)_(.*)_(.*)$")[, -1])
+                                               ),
                               c('V1' = 'Component', 'V2' = 'Delmo', 'V3' = 'Segment'))
     sim.prices.long <- mutate(sim.prices.long,
                               Delmo = as.Date(Delmo),
@@ -134,8 +134,6 @@ shinyServer(function(input, output, session){
     price.fwd.bind <- mutate(price.fwd.bind, Delmo = as.Date(Delmo))
     sim.prices.final.long <- join(sim.prices.final.long, price.fwd.bind, by = c('Component', 'Delmo', 'Segment'),
                                    type = 'left')
-    # sim.prices.final.long$HR <- hrval
-    # sim.prices.final.long$VOM <- vomval
     return(sim.prices.final.long)
     })
 
@@ -149,17 +147,6 @@ shinyServer(function(input, output, session){
     return(sim.prices.long.select)
     
   })
-  
-  terminalDist <- reactive({
-    if(input$goButton1 == 0)
-      return()
-
-    sim.prices.terminal <- as.data.table(simOutput())
-    sim.prices.terminal <- sim.prices.terminal[Delmo == max(Delmo), ]
-    sim.prices.terminal <- sim.prices.terminal[, meanPrice := mean(Price), by = c('Component', 'Segment')]
-    return(sim.prices.terminal)
-  })
-  
   
   aggregation <- reactive({
     if (input$aggreg)
@@ -184,7 +171,8 @@ shinyServer(function(input, output, session){
       forspread2 <- dplyr::select(forspread2, Delmo, SimNo, Price)
       setnames(forspread2, 'Price', 'gasPrice')
       forspread.fin <- join(forspread1, forspread2, by = c('Delmo', 'SimNo'), type = 'left')
-      forspread.fin <- forspread.fin[, optPrice := ifelse(Price - gasPrice * HR - VOM > 0, Price - gasPrice * HR - VOM, 0)]
+      forspread.fin <- forspread.fin[, optPrice := ifelse(Price - gasPrice * HR - VOM > 0, 
+                                                          Price - gasPrice * HR - VOM, 0)]
       return(forspread.fin)
     }
   })
@@ -194,11 +182,8 @@ shinyServer(function(input, output, session){
     if(input$spreadopt & input$aggreg)
     spreadOptPeriod <- as.data.table(spreadSummary())
     spreadOptPeriod <- spreadOptPeriod[Delmo >= input$aggrangemonth[1] & Delmo <= input$aggrangemonth[2], ]
-    # spreadDates <- listBizday(input$aggrangemonth[1], 
-    #                           as.Date(timeDate::timeLastDayInMonth(input$aggrangemonth[2])), dateformat = TRUE)
-    # spreadDateJoin <- data.frame(Delmo = as.Date(timeDate::timeFirstDayInMonth(spreadDates)), 
-    #                              Dates = spreadDates)
-    spreadDates <- expandDates(input$aggrangemonth[1], as.Date(timeDate::timeLastDayInMonth(input$aggrangemonth[2])))$time.segment
+    spreadDates <- expandDates(input$aggrangemonth[1], 
+                               as.Date(timeDate::timeLastDayInMonth(input$aggrangemonth[2])))$time.segment
     spreadDates <- mutate(spreadDates, sumOffPk = sum7x8 + sum2x16)
     spreadDates <- spreadDates[, c('Delmo', 'sumPk', 'sumOffPk')]
     spreadDates <- rename(spreadDates, c('sumPk' = 'pkPrice', 'sumOffPk' = 'opPrice'))
@@ -214,29 +199,83 @@ shinyServer(function(input, output, session){
     return(spreadOptPeriod)
   })
   
-  output$pricePlot <- renderPlot({
+  output$pricePlot <- renderPlotly({
     
     if(input$goButton1 == 0)
       return()
-
+    
+    sim.prices.long.select <- as.data.table(simOutput())
+    
     isolate(
-      ggplot() + geom_line(data = selectPaths(), aes(x = Delmo, y = Price, group = SimNo), color = 'dodgerblue') +
-        geom_line(data = selectPaths(), aes(x = Delmo, y = Forward_Price),
-                  color = 'black', size = 1, position = 'identity') + 
+      ggplotly(
+      ggplot() + geom_line(data = sim.prices.long.select, aes(x = Delmo, y = Price, group = SimNo), 
+                           color = 'dodgerblue', size = 0.1) +
+        geom_line(data = sim.prices.long.select, aes(x = Delmo, y = Forward_Price),
+                  color = 'black', size = 0.5, position = 'identity') + 
         scale_x_date(expand = c(0,0), date_breaks = '1 month', labels = date_format('%y-%m')) +
         facet_grid(Component + Segment ~., scales = 'free_y') + 
         theme(legend.position = 'none', axis.text.x = element_text(angle = 90))
-      )
+      ) %>% config(displayModeBar = F) # %>% layout(height = 500)
+    )
   })
   
-  output$distPlot <- renderPlot({
+  output$distPlot <- renderPlotly({
     if(input$goButton1 == 0)
       return()
+    
+    distData <- as.data.table(simOutput())
+    uniqueDelmos <- unique(distData$Delmo)
+    
+    p1 <- plot_ly(distData[Component == 'NG' & Delmo == uniqueDelmos[1], ],
+                  x = ~ Price, type = 'histogram', 
+                  name = paste0('NG ', as.character(format(uniqueDelmos[1], "%b%y"))), alpha = 0.5) %>% 
+      config(displayModeBar = FALSE)
+      # config(displaylogo = F,
+      #        modeBarButtonsToRemove = list(
+      #          'sendDataToCloud',
+      #          'toImage',
+      #          'autoScale2d',
+      #          'hoverClosestCartesian',
+      #          'hoverCompareCartesian'))
+
+    for (i in 2:length(uniqueDelmos)){
+      p1 <- add_histogram(p1, distData[Component == 'NG' & Delmo == uniqueDelmos[i], Price], type = 'histogram', 
+                          name = paste0('NG ', as.character(format(uniqueDelmos[i], "%b%y")))) %>% 
+        layout(barmode = 'overlay', legend = list(orientation = 'h'))
+    }
+    
+    p2 <- plot_ly(distData[Component != 'NG' & Delmo == uniqueDelmos[1] & Segment == 'pkPrice', ],
+                  x = ~ Price, type = 'histogram', 
+                  name = paste0('PK PWR ', as.character(format(uniqueDelmos[1], "%b%y"))), alpha = 0.5) %>%
+      config(displayModeBar = FALSE)
+    
+    for (i in 2:length(uniqueDelmos)){
+      p2 <- add_histogram(p2, distData[Component != 'NG' & Delmo == uniqueDelmos[i] & Segment == 'pkPrice', Price], 
+                          type = 'histogram', 
+                          name = paste0('PK PWR ', as.character(format(uniqueDelmos[i], "%b%y")))) %>% 
+        layout(barmode = 'overlay', legend = list(orientation = 'h'))
+    }
+    
+    p3 <- plot_ly(distData[Component != 'NG' & Delmo == uniqueDelmos[1] & Segment == 'opPrice', ],
+                  x = ~ Price, type = 'histogram', 
+                  name = paste0('OffPk PWR ', as.character(format(uniqueDelmos[1], "%b%y"))), alpha = 0.5) %>%
+      config(displayModeBar = FALSE)
+    
+    for (i in 2:length(uniqueDelmos)){
+      p3 <- add_histogram(p3, distData[Component != 'NG' & Delmo == uniqueDelmos[i] & Segment == 'opPrice', Price], 
+                          type = 'histogram', 
+                          name = paste0('OffPk PWR ', as.character(format(uniqueDelmos[i], "%b%y")))) %>% 
+        layout(barmode = 'overlay', legend = list(orientation = 'h'))
+    }
+    
     isolate(
-      ggplot(terminalDist(), aes(x = Price)) + geom_histogram() +
-        geom_vline(aes(xintercept = meanPrice), color = 'red', linetype = 'dashed') +
-        facet_grid(. ~ Component + Segment, scales = 'free_x') +
-        ggtitle('Distribution of terminal prices (last forward month) w/ mean')
+
+      subplot(p1, p2, p3, nrows = 3, margin = 0.05)
+      
+      # ggplot(terminalDist(), aes(x = Price)) + geom_histogram() +
+      #   geom_vline(aes(xintercept = meanPrice), color = 'red', linetype = 'dashed') +
+      #   facet_grid(. ~ Component + Segment, scales = 'free_x') +
+      #   ggtitle('Distribution of terminal prices (last forward month) w/ mean')
     )
   })
   
@@ -263,16 +302,6 @@ shinyServer(function(input, output, session){
              by power curve and month, the profitability of a hypothetical 1 MW gas plant (all segment hours).')
     )
   })
-  
-  # output$spreadPlot <- renderPlot({
-  #   if(input$goButton1 == 0)
-  #     return()
-  #   isolate(
-  #     ggplot(spreadSummary(), aes(x = optPrice)) + geom_histogram() +
-  #       facet_grid(Component + Delmo + Segment ~., scales = 'free') +
-  #       theme(legend.position = 'none')
-  #   )
-  # })
   
   pctileSummary <- reactive({
     if(input$tblout){
@@ -372,10 +401,10 @@ shinyServer(function(input, output, session){
   )
     
   observe({
-    mkt.curvelist <- switch(input$mkt,
-                            ERCOT = c('ZONE N', 'ZONE H'),
-                            PJM = c ('WESTRT'))
-    updateCheckboxGroupInput(session, "curvelist", choices = mkt.curvelist)
+    # mkt.curvelist <- switch(input$mkt,
+    #                         ERCOT = c('ZONE N'),
+    #                         PJM = c ('WESTRT'))
+    # updateCheckboxGroupInput(session, "curvelist", choices = mkt.curvelist)
     
     ascmkt.asccurvelist <- switch(input$ascmkt,
                                   ERCOT = c('Fwd\\Coal\\PRB\\PRB\\8400\\0.8',
@@ -396,9 +425,12 @@ shinyServer(function(input, output, session){
     ascendCurvelist <- input$asccurvelist
     ascendSims <- ascFwdSimQuery(studyID = studyID, curvelist = ascendCurvelist, rptdate = rptdate)
     ascendSims <- as.data.table(ascendSims)
-    ascendSims <- ascendSims[DELIVERYDATE <= '2019-12-01', c('JOBID', 'DELIVERYDATE', 'WXSIMREP', 'PRICE', 'DESCRIPTION')]
+    ascendSims <- ascendSims[DELIVERYDATE <= '2019-12-01', 
+                             c('JOBID', 'DELIVERYDATE', 'WXSIMREP', 'PRICE', 'DESCRIPTION')]
     ascendSims[, DELIVERYDATE := as.Date(DELIVERYDATE)]
-    # ascendSims[, SHORTDESC := str_sub(DESCRIPTION, start = max(unlist(gregexpr("\\\\", DESCRIPTION))) + 1), by = .(DESCRIPTION)]
+    # ascendSims[, SHORTDESC := str_sub(DESCRIPTION, 
+    #                                   start = max(unlist(gregexpr("\\\\", DESCRIPTION))) + 1), 
+    #            by = .(DESCRIPTION)]
     return(ascendSims)
   })
   
@@ -421,7 +453,8 @@ shinyServer(function(input, output, session){
     if(input$goButton2 == 0)
       return()
     isolate(
-      ggplot() + geom_line(data = selectPathsAscend(), aes(x = DELIVERYDATE, y = PRICE, group = WXSIMREP), color = 'dodgerblue') +
+      ggplot() + geom_line(data = selectPathsAscend(), 
+                           aes(x = DELIVERYDATE, y = PRICE, group = WXSIMREP), color = 'dodgerblue') +
         geom_line(data = selectPathsAscend(), aes(x = DELIVERYDATE, y = meanPRICE),
                   color = 'black', size = 1, position = 'identity') + 
         scale_x_date(expand = c(0,0), date_breaks = '1 month', labels = date_format('%y-%m')) +

@@ -1,6 +1,7 @@
 library(shiny)
 library(shinydashboard)
 library(shinythemes)
+library(plotly)
 # library(shinyFiles)
 
 shinyUI(navbarPage(theme = shinytheme("cerulean"),
@@ -17,11 +18,11 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                                        This is used to calculate correlation matrix."),
                               dateRangeInput("simrangemonth", label = h4("Range of Forward Months to Simulate"),
                                              start = '2018-01-01', end = '2018-12-01'),
-                              selectInput("mkt", "Market", c('ERCOT', 'PJM'),
-                                          selected = 'ERCOT'),
-                              checkboxGroupInput("curvelist", "Select components in that market:", choices = c("")),
+                              selectInput("mktcomp", "Market-Component", c('ERCOT-ZONE N', 'PJM-WESTRT'),
+                                          selected = 'ERCOT-ZONE N'),
+                              # checkboxGroupInput("curvelist", "Select components in that market:", choices = c("")),
                               dateRangeInput("aggrangemonth", label = h4("Select strip of aggregation (optional)"),
-                                             start = '2017-07-01', end = '2017-08-01'),
+                                             start = '2018-07-01', end = '2018-08-01'),
                               helpText("Make sure the aggregation period is included in the simulation period
                                        selected above"),
                               checkboxInput("tblout", "include table with select percentiles of simulated prices", value = FALSE),
@@ -41,8 +42,8 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                               tabsetPanel(
                                 tabPanel("plots of simulated curves", 
                                          fluidRow(
-                                           column(10, plotOutput("pricePlot")),
-                                           column(10, plotOutput("distPlot")))),
+                                           column(10, plotlyOutput("pricePlot")),
+                                           column(10, plotlyOutput("distPlot")))),
                                 tabPanel("table with select percentiles", dataTableOutput("pctileTbl")),
                                 tabPanel("distribution of prices aggregated by strip",
                                          fluidRow(
