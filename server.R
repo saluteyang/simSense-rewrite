@@ -233,7 +233,7 @@ shinyServer(function(input, output, session){
                  alpha = 0.5, autobinx = FALSE, xbins = list(start = 0, end = 200, size = 2.5)) %>% 
       config(displayModeBar = FALSE)
     for (i in 2:length(uniqueDelmos)){
-      p1 <- add_histogram(p1, df[Delmo == uniqueDelmos[i], pkPrice], 
+      p1 <- add_histogram(p1, distData[Delmo == uniqueDelmos[i], pkPrice], 
                          type = 'histogram', 
                          name = as.character(format(uniqueDelmos[i], "%b%y"))) %>%
         layout(barmode = 'overlay')
@@ -262,7 +262,7 @@ shinyServer(function(input, output, session){
                   alpha = 0.5, autobinx = FALSE, xbins = list(start = 0, end = 100, size = 1.5)) %>% 
       config(displayModeBar = FALSE)
     for (i in 2:length(uniqueDelmos)){
-      p2 <- add_histogram(p2, df[Delmo == uniqueDelmos[i], opPrice], 
+      p2 <- add_histogram(p2, distData[Delmo == uniqueDelmos[i], opPrice], 
                           type = 'histogram', 
                           name = as.character(format(uniqueDelmos[i], "%b%y"))) %>%
         layout(barmode = 'overlay')
@@ -291,7 +291,7 @@ shinyServer(function(input, output, session){
                   alpha = 0.5, autobinx = FALSE, xbins = list(start = 0, end = 10, size = 0.25)) %>% 
       config(displayModeBar = FALSE)
     for (i in 2:length(uniqueDelmos)){
-      p3 <- add_histogram(p3, df[Delmo == uniqueDelmos[i], rtcPrice], 
+      p3 <- add_histogram(p3, distData[Delmo == uniqueDelmos[i], rtcPrice], 
                           type = 'histogram', 
                           name = as.character(format(uniqueDelmos[i], "%b%y"))) %>%
         layout(barmode = 'overlay')
