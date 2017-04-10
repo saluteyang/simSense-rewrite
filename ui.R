@@ -40,20 +40,18 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                               ),
                             mainPanel(
                               tabsetPanel(
-                                tabPanel("plots of simulated curves", 
-                                         fluidRow(
-                                           column(10, plotlyOutput("pricePlot")),
-                                           column(10, plotlyOutput("distPlot")))),
+                                tabPanel("plots of simulated curves",
+                                         plotlyOutput("pricePlot"),
+                                         plotlyOutput("distPlot1"),
+                                         plotlyOutput("distPlot2"),
+                                         plotlyOutput("distPlot3")),
                                 tabPanel("table with select percentiles", dataTableOutput("pctileTbl")),
                                 tabPanel("distribution of prices aggregated by strip",
-                                         fluidRow(
-                                           column(10, plotOutput("aggDistPlot")),
-                                           column(10, dataTableOutput("aggregTbl"))
-                                         )),
-                                tabPanel("distibution of custom spread option", 
-                                         fluidRow(
-                                           column(10, dataTableOutput('spreadTbl')),
-                                           column(10, plotOutput('spreadPeriodPlot'))))
+                                         plotOutput("aggDistPlot"),
+                                         dataTableOutput("aggregTbl")),
+                                tabPanel("distibution of custom spread option",
+                                         dataTableOutput('spreadTbl'),
+                                         plotOutput('spreadPeriodPlot'))
                               )
                             )
                     ),

@@ -219,64 +219,91 @@ shinyServer(function(input, output, session){
     )
   })
   
-  output$distPlot <- renderPlotly({
+  output$distPlot1 <- renderPlotly({
     if(input$goButton1 == 0)
       return()
     
     distData <- as.data.table(simOutput())
     uniqueDelmos <- unique(distData$Delmo)
+    distData <- dcast(distData, Delmo + SimNo ~ Segment, value.var = 'Price')
     
-    p1 <- plot_ly(distData[Component == 'NG' & Delmo == uniqueDelmos[1], ],
-                  x = ~ Price, type = 'histogram', 
-                  name = paste0('NG ', as.character(format(uniqueDelmos[1], "%b%y"))), alpha = 0.5) %>% 
+    p1 <- plot_ly(distData[Delmo == uniqueDelmos[1], ], 
+                 x = ~ pkPrice, type = 'histogram', 
+                 name = as.character(format(uniqueDelmos[1], "%b%y")),
+                 alpha = 0.5, autobinx = FALSE, xbins = list(start = 0, end = 200, size = 2.5)) %>% 
       config(displayModeBar = FALSE)
-      # config(displaylogo = F,
-      #        modeBarButtonsToRemove = list(
-      #          'sendDataToCloud',
-      #          'toImage',
-      #          'autoScale2d',
-      #          'hoverClosestCartesian',
-      #          'hoverCompareCartesian'))
-
     for (i in 2:length(uniqueDelmos)){
-      p1 <- add_histogram(p1, distData[Component == 'NG' & Delmo == uniqueDelmos[i], Price], type = 'histogram', 
-                          name = paste0('NG ', as.character(format(uniqueDelmos[i], "%b%y")))) %>% 
-        layout(barmode = 'overlay', legend = list(orientation = 'h'))
+      p1 <- add_histogram(p1, df[Delmo == uniqueDelmos[i], pkPrice], 
+                         type = 'histogram', 
+                         name = as.character(format(uniqueDelmos[i], "%b%y"))) %>%
+        layout(barmode = 'overlay')
     }
     
-    p2 <- plot_ly(distData[Component != 'NG' & Delmo == uniqueDelmos[1] & Segment == 'pkPrice', ],
-                  x = ~ Price, type = 'histogram', 
-                  name = paste0('PK PWR ', as.character(format(uniqueDelmos[1], "%b%y"))), alpha = 0.5) %>%
-      config(displayModeBar = FALSE)
-    
-    for (i in 2:length(uniqueDelmos)){
-      p2 <- add_histogram(p2, distData[Component != 'NG' & Delmo == uniqueDelmos[i] & Segment == 'pkPrice', Price], 
-                          type = 'histogram', 
-                          name = paste0('PK PWR ', as.character(format(uniqueDelmos[i], "%b%y")))) %>% 
-        layout(barmode = 'overlay', legend = list(orientation = 'h'))
-    }
-    
-    p3 <- plot_ly(distData[Component != 'NG' & Delmo == uniqueDelmos[1] & Segment == 'opPrice', ],
-                  x = ~ Price, type = 'histogram', 
-                  name = paste0('OffPk PWR ', as.character(format(uniqueDelmos[1], "%b%y"))), alpha = 0.5) %>%
-      config(displayModeBar = FALSE)
-    
-    for (i in 2:length(uniqueDelmos)){
-      p3 <- add_histogram(p3, distData[Component != 'NG' & Delmo == uniqueDelmos[i] & Segment == 'opPrice', Price], 
-                          type = 'histogram', 
-                          name = paste0('OffPk PWR ', as.character(format(uniqueDelmos[i], "%b%y")))) %>% 
-        layout(barmode = 'overlay', legend = list(orientation = 'h'))
-    }
     
     isolate(
-
-      subplot(p1, p2, p3, nrows = 3, margin = 0.05)
-      
-      # ggplot(terminalDist(), aes(x = Price)) + geom_histogram() +
-      #   geom_vline(aes(xintercept = meanPrice), color = 'red', linetype = 'dashed') +
-      #   facet_grid(. ~ Component + Segment, scales = 'free_x') +
-      #   ggtitle('Distribution of terminal prices (last forward month) w/ mean')
+      p1 %>% layout(xaxis = list(title = "On Peak Power Price"),
+                    yaxis = list(title = "Count"))
     )
+
+    
+  })
+  
+  output$distPlot2 <- renderPlotly({
+    if(input$goButton1 == 0)
+      return()
+    
+    distData <- as.data.table(simOutput())
+    uniqueDelmos <- unique(distData$Delmo)
+    distData <- dcast(distData, Delmo + SimNo ~ Segment, value.var = 'Price')
+    
+    p2 <- plot_ly(distData[Delmo == uniqueDelmos[1], ], 
+                  x = ~ opPrice, type = 'histogram', 
+                  name = as.character(format(uniqueDelmos[1], "%b%y")),
+                  alpha = 0.5, autobinx = FALSE, xbins = list(start = 0, end = 100, size = 1.5)) %>% 
+      config(displayModeBar = FALSE)
+    for (i in 2:length(uniqueDelmos)){
+      p2 <- add_histogram(p2, df[Delmo == uniqueDelmos[i], opPrice], 
+                          type = 'histogram', 
+                          name = as.character(format(uniqueDelmos[i], "%b%y"))) %>%
+        layout(barmode = 'overlay')
+    }
+    
+    
+    isolate(
+      p2 %>% layout(xaxis = list(title = "Off Peak Power Price"),
+                    yaxis = list(title = "Count"))
+    )
+    
+    
+  })
+  
+  output$distPlot3 <- renderPlotly({
+    if(input$goButton1 == 0)
+      return()
+    
+    distData <- as.data.table(simOutput())
+    uniqueDelmos <- unique(distData$Delmo)
+    distData <- dcast(distData, Delmo + SimNo ~ Segment, value.var = 'Price')
+    
+    p3 <- plot_ly(distData[Delmo == uniqueDelmos[1], ], 
+                  x = ~ rtcPrice, type = 'histogram', 
+                  name = as.character(format(uniqueDelmos[1], "%b%y")),
+                  alpha = 0.5, autobinx = FALSE, xbins = list(start = 0, end = 10, size = 0.25)) %>% 
+      config(displayModeBar = FALSE)
+    for (i in 2:length(uniqueDelmos)){
+      p3 <- add_histogram(p3, df[Delmo == uniqueDelmos[i], rtcPrice], 
+                          type = 'histogram', 
+                          name = as.character(format(uniqueDelmos[i], "%b%y"))) %>%
+        layout(barmode = 'overlay')
+    }
+    
+    
+    isolate(
+      p3 %>% layout(xaxis = list(title = "Nat Gas Price"),
+                    yaxis = list(title = "Count"))
+    )
+    
+    
   })
   
   output$aggDistPlot <- renderPlot({
