@@ -222,10 +222,10 @@ shinyServer(function(input, output, session){
     fwdData.cor <- round(cor(fwdData.ret), 2)
     fwdData.cor <- fwdData.cor[substr(rownames(fwdData.cor), 1, 2) == 'NG', 
                                substr(colnames(fwdData.cor), 1, 2) != 'NG']
-    plot_ly(x = paste(str_pad(seq(1:12), 2, pad = "0"), str_match(rownames(fwdData.cor), "^(.*)_(.*)_(.*)$")[,2],
+    plot_ly(x = paste(str_pad(seq(1:length(unique(fwd()$fwdData$Delmo))), 2, pad = "0"), str_match(rownames(fwdData.cor), "^(.*)_(.*)_(.*)$")[,2],
                       format(as.Date(str_match(rownames(fwdData.cor), "^(.*)_(.*)_(.*)$")[,3]), '%b%y'),
                       sep = "."), 
-            y = paste(str_pad(seq(1:12), 2, pad = "0"), str_match(colnames(fwdData.cor), "^(.*)_(.*)_(.*)$")[,2],
+            y = paste(str_pad(seq(1:length(unique(fwd()$fwdData$Delmo))), 2, pad = "0"), str_match(colnames(fwdData.cor), "^(.*)_(.*)_(.*)$")[,2],
                       format(as.Date(str_match(colnames(fwdData.cor), "^(.*)_(.*)_(.*)$")[,3]), '%b%y'),
                       sep = "."), 
             z = fwdData.cor, type = 'heatmap') %>% 
