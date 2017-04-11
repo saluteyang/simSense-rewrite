@@ -134,15 +134,112 @@ shinyServer(function(input, output, session){
     price.fwd.bind <- mutate(price.fwd.bind, Delmo = as.Date(Delmo))
     sim.prices.final.long <- join(sim.prices.final.long, price.fwd.bind, by = c('Component', 'Delmo', 'Segment'),
                                    type = 'left')
-    return(sim.prices.final.long)
+    return(list(outputSim = sim.prices.final.long, outputFwd = curves.comb))
     })
 
+  fwd <- reactive({
+    if(input$goButton1 == 0)
+      return()
+    
+    fwdData <- as.data.table(simOutput()$outputFwd)
+    ifelse(input$pwrseg == 'On Peak',
+           fwdData <- fwdData[Segment != 'opPrice', ],
+           fwdData <- fwdData[Segment != 'pkPrice', ]
+    ) 
+    fwdData.cast <- dcast(fwdData, Date + Delmo ~ Segment, value.var = 'Price')
+    fwdData.cast <- fwdData.cast[complete.cases(fwdData.cast),]
+    fwdData.cast <- fwdData.cast[order(Delmo, Date),]
+    fwdData.cast[, Delmo := as.character(format(Delmo, "%b%y"))]
+    
+    return(list(fwdData = fwdData, fwdData.cast = fwdData.cast))
+  })
+  
+  output$p1 <- renderPlotly({
+    if(input$goButton1 == 0)
+      return()
+    
+    d <- event_data("plotly_click")
+    p <- plot_ly(fwd()$fwdData.cast, x = ~ Date, y = ~ rtcPrice) %>%
+      add_lines(key = ~ Delmo, color = ~ Delmo)
+    if (!is.null(d)) {
+      m <- fwd()$fwdData.cast[Date == unique(d[["x"]]), ]
+      p <- add_markers(p, data = m, color = I("red")) # text = ~paste("y"), clickinfo = "text")
+    }
+    p %>% layout(showlegend = FALSE)
+  })
 
+  output$p2 <- renderPlotly({
+    if(input$goButton1 == 0){
+      return()
+    }
+      
+    else {
+      if(input$pwrseg == 'On Peak'){
+        d <- event_data("plotly_click")
+        p <- plot_ly(fwd()$fwdData.cast, x = ~ Date, y = ~ pkPrice) %>%
+          add_lines(key = ~ Delmo, color = ~ Delmo)
+        if (!is.null(d)) {
+          m <- fwd()$fwdData.cast[Date == unique(d[["x"]]), ]
+          p <- add_markers(p, data = m, color = I("red"))
+        }
+        p %>% layout(showlegend = FALSE)
+      } else{
+        d <- event_data("plotly_click")
+        p <- plot_ly(fwd()$fwdData.cast, x = ~ Date, y = ~ opPrice) %>%
+          add_lines(key = ~ Delmo, color = ~ Delmo)
+        if (!is.null(d)) {
+          m <- fwd()$fwdData.cast[Date == unique(d[["x"]]), ]
+          p <- add_markers(p, data = m, color = I("red"))
+        }
+        p %>% layout(showlegend = FALSE)
+        
+      }
+    }
+
+    
+  })
+  
+  output$correlation <- renderPlotly({
+    if(input$goButton1 == 0)
+      return()
+    
+    if (!is.null(event_data("plotly_click"))) {
+      m <- fwd()$fwdData[Date == unique(event_data("plotly_click")[["x"]]), ]
+    } else {return()}
+    
+    # get click curve date
+    clickDate <- unique(m$Date)
+    windowStart <- as.numeric(clickDate) - as.numeric(input$window)
+    if(min(fwd()$fwdData$Date) > windowStart)
+      return() # add validate statement
+    
+    fwdData.pivot <- dcast(fwd()$fwdData[Date >= windowStart,], Date~Component + Delmo + Segment, value.var = 'Price') # dcast sorts columns lexically
+    fwdData.pivot <- cbind(dplyr::select(fwdData.pivot, Date),
+                           dplyr::select(fwdData.pivot, -Date))
+    fwdData.pivot <- fwdData.pivot[complete.cases(fwdData.pivot),]
+    fwdData.ret <- log(fwdData.pivot[-1,-1]/fwdData.pivot[-dim(fwdData.pivot)[1],-1])
+    rownames(fwdData.ret) <- fwdData.pivot$Date[-1]
+    fwdData.cor <- round(cor(fwdData.ret), 2)
+    fwdData.cor <- fwdData.cor[substr(rownames(fwdData.cor), 1, 2) == 'NG', 
+                               substr(colnames(fwdData.cor), 1, 2) != 'NG']
+    plot_ly(x = paste(str_pad(seq(1:12), 2, pad = "0"), str_match(rownames(fwdData.cor), "^(.*)_(.*)_(.*)$")[,2],
+                      format(as.Date(str_match(rownames(fwdData.cor), "^(.*)_(.*)_(.*)$")[,3]), '%b%y'),
+                      sep = "."), 
+            y = paste(str_pad(seq(1:12), 2, pad = "0"), str_match(colnames(fwdData.cor), "^(.*)_(.*)_(.*)$")[,2],
+                      format(as.Date(str_match(colnames(fwdData.cor), "^(.*)_(.*)_(.*)$")[,3]), '%b%y'),
+                      sep = "."), 
+            z = fwdData.cor, type = 'heatmap') %>% 
+      layout(title = "Correlation heatmap",
+             xaxis = list(title = ""),
+             yaxis = list(title = ""),
+             margin = list(l = 120, r = 50, b = 120, t = 50))
+  })
+  
   selectPaths <- reactive({
     if(input$goButton1 == 0)
       return()
     
-    sim.prices.long.select <- as.data.table(simOutput())
+    sim.prices.long.select <- as.data.table(simOutput()$outputSim)
     sim.prices.long.select <- sim.prices.long.select[, .SD[1:50], by = list(Component, Delmo, Segment)]
     return(sim.prices.long.select)
     
@@ -150,7 +247,7 @@ shinyServer(function(input, output, session){
   
   aggregation <- reactive({
     if (input$aggreg)
-    aggregDist <- as.data.table(simOutput())
+    aggregDist <- as.data.table(simOutput()$outputSim)
     aggregDist <- aggregDist[Delmo >= input$aggrangemonth[1] & Delmo <= input$aggrangemonth[2], ]
     aggregDist <- aggregDist[, {
       Strip_Price = mean(Price)
@@ -163,7 +260,7 @@ shinyServer(function(input, output, session){
   
   spreadSummary <- reactive({
     if(input$spreadopt){
-      forspread <- as.data.table(simOutput())
+      forspread <- as.data.table(simOutput()$outputSim)
       forspread$HR <- input$hr
       forspread$VOM <- input$vom
       forspread1 <- forspread[Component != 'NG',]
@@ -204,7 +301,7 @@ shinyServer(function(input, output, session){
     if(input$goButton1 == 0)
       return()
     
-    sim.prices.long.select <- as.data.table(simOutput())
+    sim.prices.long.select <- as.data.table(simOutput()$outputSim)
     
     isolate(
       ggplotly(
@@ -214,16 +311,24 @@ shinyServer(function(input, output, session){
                   color = 'black', size = 0.5, position = 'identity') + 
         scale_x_date(expand = c(0,0), date_breaks = '1 month', labels = date_format('%y-%m')) +
         facet_grid(Component + Segment ~., scales = 'free_y') + 
-        theme(legend.position = 'none', axis.text.x = element_text(angle = 90))
-      ) %>% config(displayModeBar = F) # %>% layout(height = 500)
+        theme(legend.position = 'none', axis.text.x = element_text(angle = 90)) + 
+        scale_x_discrete(name = "") + scale_y_continuous(name = "")
+      ) %>% config(displayModeBar = F) %>% 
+        layout(xaxis = list(title = 'Delivery Month'), yaxis = list(title = "Price"),
+               margin = list(l = 50, r = 50, b = 50, t = 50))
     )
   })
+  
+  # output$hover <- renderPrint({
+  #   d <- event_data("plotly_hover")
+  #   if (is.null(d)) "Hover events appear here (unhover to clear)" else d
+  # })
   
   output$distPlot1 <- renderPlotly({
     if(input$goButton1 == 0)
       return()
     
-    distData <- as.data.table(simOutput())
+    distData <- as.data.table(simOutput()$outputSim)
     uniqueDelmos <- unique(distData$Delmo)
     distData <- dcast(distData, Delmo + SimNo ~ Segment, value.var = 'Price')
     
@@ -252,7 +357,7 @@ shinyServer(function(input, output, session){
     if(input$goButton1 == 0)
       return()
     
-    distData <- as.data.table(simOutput())
+    distData <- as.data.table(simOutput()$outputSim)
     uniqueDelmos <- unique(distData$Delmo)
     distData <- dcast(distData, Delmo + SimNo ~ Segment, value.var = 'Price')
     
@@ -281,7 +386,7 @@ shinyServer(function(input, output, session){
     if(input$goButton1 == 0)
       return()
     
-    distData <- as.data.table(simOutput())
+    distData <- as.data.table(simOutput()$outputSim)
     uniqueDelmos <- unique(distData$Delmo)
     distData <- dcast(distData, Delmo + SimNo ~ Segment, value.var = 'Price')
     
@@ -332,7 +437,7 @@ shinyServer(function(input, output, session){
   
   pctileSummary <- reactive({
     if(input$tblout){
-      pricePercentile <- as.data.table(simOutput())
+      pricePercentile <- as.data.table(simOutput()$outputSim)
       pricePercentile <- pricePercentile[, list(`5th` = round(quantile(Price, .05), digits = 2),
                                                 `10th` = round(quantile(Price, .1), digits = 2),
                                                 # `50th` = round(quantile(Price, 0.5), digits = 2),
@@ -405,7 +510,7 @@ shinyServer(function(input, output, session){
       paste("simulated_prices", Sys.Date(), ".csv", sep = "")
       },
     content = function(file2){
-      write.csv(simOutput(), file2, row.names = FALSE)
+      write.csv(simOutput()$outputSim, file2, row.names = FALSE)
     }
   )
   

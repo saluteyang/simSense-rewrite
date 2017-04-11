@@ -20,18 +20,34 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                                              start = '2018-01-01', end = '2018-12-01'),
                               selectInput("mktcomp", "Market-Component", c('ERCOT-ZONE N', 'PJM-WESTRT'),
                                           selected = 'ERCOT-ZONE N'),
-                              # checkboxGroupInput("curvelist", "Select components in that market:", choices = c("")),
-                              dateRangeInput("aggrangemonth", label = h4("Select strip of aggregation (optional)"),
-                                             start = '2018-07-01', end = '2018-08-01'),
-                              helpText("Make sure the aggregation period is included in the simulation period
-                                       selected above"),
+                              checkboxInput("visfwd", "include plotting of forward price history", value = TRUE),
+                              conditionalPanel(
+                                condition = "input.visfwd == true",
+                                selectInput("window", label = "Select backward looking window length for correlation heatmap",
+                                            choices = c(10, 20, 30, 60, 90), selected = 30),
+                                helpText("After clicking Go, click on the forward chart to select the end date of the window.
+                                         Make sure the lookback window doesn't fall out of the curve date range specified."),
+                                selectInput("pwrseg", label = "Select on or off peak for power forward price visualization",
+                                            choices = c('On Peak', 'Off Peak'), selected = 'On Peak')
+                              ),
                               checkboxInput("tblout", "include table with select percentiles of simulated prices", value = FALSE),
                               checkboxInput("aggreg", "include custom range aggregation", value = FALSE),
+                              conditionalPanel(
+                                condition = "input.aggreg == true",
+                                dateRangeInput("aggrangemonth", label = h4("Select strip of aggregation (optional)"),
+                                               start = '2018-07-01', end = '2018-08-01'),
+                                helpText("Make sure the aggregation period is included in the simulation period
+                                         selected above")
+                              ),
                               checkboxInput("spreadopt", "include valuation of dummy spread option", value = FALSE),
-                              sliderInput("hr", label = h4("Heat rate for spread option"),
-                                          min = 4, max = 15, step = 0.5, value = 10),
-                              sliderInput("vom", label = h4("VOM for spread option"),
-                                          min = 0, max = 10, step = 0.5, value = 2),
+                              conditionalPanel(
+                                condition = "input.spreadopt == true",
+                                sliderInput("hr", label = h4("Heat rate for spread option"),
+                                            min = 4, max = 15, step = 0.5, value = 10),
+                                sliderInput("vom", label = h4("VOM for spread option"),
+                                            min = 0, max = 10, step = 0.5, value = 2)
+                              ),
+
                               actionButton("goButton1", "Start"),
                               downloadButton('downloadPct', 'Download Percentiles'),
                               downloadButton('downloadSim', 'Download All Simulations'),
@@ -40,6 +56,13 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                               ),
                             mainPanel(
                               tabsetPanel(
+                                tabPanel("plots of forward curves",
+                                         fluidRow(
+                                           column(6, plotlyOutput("p1")),
+                                           column(6, plotlyOutput("p2")),
+                                           column(12, plotlyOutput("correlation"))
+                                         )
+                                         ),
                                 tabPanel("plots of simulated curves",
                                          plotlyOutput("pricePlot"),
                                          plotlyOutput("distPlot1"),
