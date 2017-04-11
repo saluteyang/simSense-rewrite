@@ -228,7 +228,8 @@ shinyServer(function(input, output, session){
             y = paste(str_pad(seq(1:length(unique(fwd()$fwdData$Delmo))), 2, pad = "0"), str_match(colnames(fwdData.cor), "^(.*)_(.*)_(.*)$")[,2],
                       format(as.Date(str_match(colnames(fwdData.cor), "^(.*)_(.*)_(.*)$")[,3]), '%b%y'),
                       sep = "."), 
-            z = fwdData.cor, type = 'heatmap') %>% 
+            z = fwdData.cor, type = 'heatmap',
+            colors = colorRamp(c('#e3dfc8', '#808c6c'))) %>% 
       layout(title = "Correlation heatmap",
              xaxis = list(title = ""),
              yaxis = list(title = ""),
