@@ -26,7 +26,8 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                                 selectInput("window", label = "Select backward looking window length for correlation heatmap",
                                             choices = c(10, 20, 30, 60, 90), selected = 30),
                                 helpText("After clicking Go, click on the forward chart to select the end date of the window.
-                                         Make sure the lookback window doesn't fall out of the curve date range specified."),
+                                         Make sure the lookback window doesn't fall out of the curve date range specified.
+                                         Note that correlation for simulation will always use the full range of curve dates."),
                                 selectInput("pwrseg", label = "Select on or off peak for power forward price visualization",
                                             choices = c('On Peak', 'Off Peak'), selected = 'On Peak')
                               ),
