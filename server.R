@@ -213,7 +213,7 @@ shinyServer(function(input, output, session){
     if(min(fwd()$fwdData$Date) > windowStart)
       return() # add validate statement
     
-    fwdData.pivot <- dcast(fwd()$fwdData[Date >= windowStart,], Date~Component + Delmo + Segment, value.var = 'Price') # dcast sorts columns lexically
+    fwdData.pivot <- dcast(fwd()$fwdData[Date >= windowStart & Date <= clickDate,], Date~Component + Delmo + Segment, value.var = 'Price') # dcast sorts columns lexically
     fwdData.pivot <- cbind(dplyr::select(fwdData.pivot, Date),
                            dplyr::select(fwdData.pivot, -Date))
     fwdData.pivot <- fwdData.pivot[complete.cases(fwdData.pivot),]
@@ -319,11 +319,6 @@ shinyServer(function(input, output, session){
                margin = list(l = 50, r = 50, b = 50, t = 50))
     )
   })
-  
-  # output$hover <- renderPrint({
-  #   d <- event_data("plotly_hover")
-  #   if (is.null(d)) "Hover events appear here (unhover to clear)" else d
-  # })
   
   output$distPlot1 <- renderPlotly({
     if(input$goButton1 == 0)
