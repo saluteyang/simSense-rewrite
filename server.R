@@ -27,7 +27,6 @@ shinyServer(function(input, output, session){
     )
     
     ### user input variables #####
-    
     nsims <- input$numsimslider
     # period of forward prices used
     curve.date.begin <- as.Date(input$curvedaterange[1]) # based on availability, may not all be available
@@ -36,105 +35,11 @@ shinyServer(function(input, output, session){
     start_date <- as.Date(input$simrangemonth[1])
     end_date <- as.Date(input$simrangemonth[2])
     # curve market/component
-    market <- unlist(strsplit(input$mktcomp, '-'))[1]
-    component <- unlist(strsplit(input$mktcomp, '-'))[2]
-    
+    marketcomponentstr <- input$mktcomp
     ### end of input variables #####
     
-    numofmonth <- (as.yearmon(end_date) - as.yearmon(start_date))*12 + 1
-    # first forward month
-    first.month <- start_date
-    # forward delivery months included
-    month.used <- seq(as.Date(first.month), by = "month", length.out = as.integer(numofmonth))
-    
-    # day counts
-    end_date <- timeDate::timeLastDayInMonth(end_date)
-    out.days <- expandDates(start_date, end_date)$time.days
-    period.pre <- as.numeric(as.Date(first.month) - as.Date(curve.date.end))/365
-    period.rtc.inter <- cumsum(out.days$numTotDays)
-    # day count convention to be consistent with option quotes
-    period.pk <- c(period.pre, period.rtc.inter/365 + period.pre)
-    period.pk <- period.pk[-length(period.pk)]
-    
-    ## price generation process starts here #######
-    set.seed(123)
-    
-    # pull forward power
-    pwr.curves <- futures.pwr.multi.rng.w(curve.date.begin, curve.date.end,
-                                          first.month, month.used[numofmonth],
-                                          rep(market, length(component)),
-                                          component)
-    
-    pwr.curves <- melt(pwr.curves, id.vars = c('Date', 'Market', 'Component', 'Delmo'), 
-                       variable.name = 'Segment', value.name = 'Price')
-    pwr.curves <- dplyr::filter(pwr.curves, Segment != 'rtcPrice')
-    
-    ng.curve <- futures.ng.rng(curve.date.begin, curve.date.end,
-                               first.month, month.used[numofmonth])
-    ng.curve <- mutate(rename(ng.curve, c('NG' = 'rtcPrice')),
-                       Market = "NYMEX", Component = "NG")
-    ng.curve <- melt(ng.curve, id.vars = c('Date', 'Market', 'Component', 'Delmo'), 
-                     variable.name = 'Segment', value.name = 'Price')
-    
-    curves.comb <- rbind.data.frame(pwr.curves, ng.curve) # coal.curve
-    curves.comb$Component <- trimws(curves.comb$Component)
-    curves.comb$Market <- NULL
-    
-    # make delmo as subscript of distinct commodities
-    curves.comb.pivot <- dcast(curves.comb, Date~Component + Delmo + Segment, value.var = 'Price')
-    curves.comb.pivot <- cbind(dplyr::select(curves.comb.pivot[, order(colnames(curves.comb.pivot))], Date),
-                               dplyr::select(curves.comb.pivot[, order(colnames(curves.comb.pivot))], -Date))
-    curves.comb.pivot <- curves.comb.pivot[complete.cases(curves.comb.pivot),]
-    curves.comb.ret <- log(curves.comb.pivot[-1,-1]/curves.comb.pivot[-dim(curves.comb.pivot)[1],-1])
-    rownames(curves.comb.ret) <- curves.comb.pivot$Date[-1]
-    curves.comb.cor <- cor(curves.comb.ret)
-    
-    price.fwd <- curves.comb.pivot[which(curves.comb.pivot$Date == curve.date.end), -1]
-    vol.fwd <- monthlyPkVol.multi(curve.date.end, month.used[numofmonth],
-                                  c(rep(market, length(component)), 'NYMEX'),
-                                  c(component,'NG'))
-    # trim not needed volatilities
-    vol.fwd <- vol.fwd[which(vol.fwd$DELMO %in% month.used),]
-    vol.fwd <- mutate(vol.fwd, SEGMENT = ifelse(MARKET %in% c('NYMEX '), 'rtc', 'pk'))
-    vol.fwd.app <- mutate(dplyr::filter(vol.fwd, !MARKET %in% c('NYMEX ')), VOLATILITY = VOLATILITY * 0.8)
-    vol.fwd.app <- mutate(vol.fwd.app, SEGMENT = 'op')
-    vol.fwd <- rbind(vol.fwd, vol.fwd.app)
-    vol.fwd <- mutate(vol.fwd, NewComponent = paste(trimws(COMPONENT), as.character(DELMO), SEGMENT, sep = "_"))
-    vol.fwd <- vol.fwd[, c('NewComponent', 'VOLATILITY')][order(vol.fwd$NewComponent),]
-    
-    ## simulate the forwards ####
-    mu <- rep(0,length(price.fwd))
-    s0 <- as.vector(t(price.fwd))
-    sigma <- vol.fwd[, 2]%*%t(vol.fwd[, 2])*curves.comb.cor
-    
-    # the dimensions of the array are commodity, nsteps, and nsims
-    sim.prices <- asset.paths(s0, mu, sigma, nsims, periods = period.pk)
-    # flatten the array
-    sim.prices.long <- do.call('rbind.data.frame',
-                               lapply(1:dim(sim.prices)[1], function(x) cbind.data.frame(sim.prices[x,,], idx = x)))
-    sim.prices.long$Monthsout <- month.used # cycling
-    sim.prices.long <- join(data.frame(idx = 1:length(price.fwd), NewComponent = rownames(t(price.fwd))),
-                            sim.prices.long, by = "idx", type = "left")
-    sim.prices.long$idx <- NULL # remove idx after joining as key
-    sim.prices.long <- melt(sim.prices.long, id.vars = c("Monthsout", "NewComponent"), 
-                            variable.name = "SimNo", value.name = "Price")
-    
-    sim.prices.long <- rename(cbind.data.frame(sim.prices.long,
-                                               as.data.frame(
-                                                 str_match(sim.prices.long$NewComponent, "^(.*)_(.*)_(.*)$")[, -1])
-                                               ),
-                              c('V1' = 'Component', 'V2' = 'Delmo', 'V3' = 'Segment'))
-    sim.prices.long <- mutate(sim.prices.long,
-                              Delmo = as.Date(Delmo),
-                              Monthsout = as.Date(Monthsout),
-                              NewComponent = NULL)
-    sim.prices.final.long <- subset(sim.prices.long, Delmo == Monthsout) # filter out expired contracts
-    price.fwd.bind <- cbind.data.frame(str_match(names(price.fwd), "^(.*)_(.*)_(.*)$")[, -1], unname(t(price.fwd)))
-    colnames(price.fwd.bind) <- c('Component', 'Delmo', 'Segment', 'Forward_Price')
-    price.fwd.bind <- mutate(price.fwd.bind, Delmo = as.Date(Delmo))
-    sim.prices.final.long <- join(sim.prices.final.long, price.fwd.bind, by = c('Component', 'Delmo', 'Segment'),
-                                   type = 'left')
-    return(list(outputSim = sim.prices.final.long, outputFwd = curves.comb))
+    temp <- fwdSimWrapper(nsims, curve.date.begin, curve.date.end, start_date, end_date, marketcomponentstr)
+    return(list(outputSim = temp$outputSim, outputFwd = temp$outputFwd))
     })
 
   fwd <- reactive({
@@ -165,7 +70,7 @@ shinyServer(function(input, output, session){
       m <- fwd()$fwdData.cast[Date == unique(d[["x"]]), ]
       p <- add_markers(p, data = m, color = I("red")) # text = ~paste("y"), clickinfo = "text")
     }
-    p %>% layout(showlegend = FALSE)
+    p %>% layout(showlegend = FALSE) %>% config(displayModeBar = F)
   })
 
   output$p2 <- renderPlotly({
@@ -191,7 +96,7 @@ shinyServer(function(input, output, session){
           m <- fwd()$fwdData.cast[Date == unique(d[["x"]]), ]
           p <- add_markers(p, data = m, color = I("red"))
         }
-        p %>% layout(showlegend = FALSE)
+        p %>% layout(showlegend = FALSE) %>% config(displayModeBar = F)
         
       }
     }
@@ -233,7 +138,7 @@ shinyServer(function(input, output, session){
       layout(title = "Correlation heatmap",
              xaxis = list(title = ""),
              yaxis = list(title = ""),
-             margin = list(l = 120, r = 50, b = 120, t = 50))
+             margin = list(l = 120, r = 50, b = 120, t = 50)) %>% config(displayModeBar = F)
   })
   
   selectPaths <- reactive({
