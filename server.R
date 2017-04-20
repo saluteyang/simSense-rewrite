@@ -71,6 +71,7 @@ shinyServer(function(input, output, session){
       p <- add_markers(p, data = m, color = I("red")) # text = ~paste("y"), clickinfo = "text")
     }
     p %>% layout(title = "NYMEX NG Prices",
+                 xaxis = list(title = ""),
                  yaxis = list(title = ""),
                  showlegend = FALSE) %>% config(displayModeBar = F)
   })
