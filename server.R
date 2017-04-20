@@ -43,7 +43,7 @@ shinyServer(function(input, output, session){
     })
 
   fwd <- reactive({
-    if(input$goButton1 == 0)
+    if(input$goButton1 == 0 | input$visfwd == 0)
       return()
     
     fwdData <- as.data.table(simOutput()$outputFwd)
@@ -60,7 +60,7 @@ shinyServer(function(input, output, session){
   })
   
   output$p1 <- renderPlotly({
-    if(input$goButton1 == 0)
+    if(input$goButton1 == 0 | input$visfwd == 0)
       return()
     
     d <- event_data("plotly_click")
@@ -70,14 +70,16 @@ shinyServer(function(input, output, session){
       m <- fwd()$fwdData.cast[Date == unique(d[["x"]]), ]
       p <- add_markers(p, data = m, color = I("red")) # text = ~paste("y"), clickinfo = "text")
     }
-    p %>% layout(showlegend = FALSE) %>% config(displayModeBar = F)
+    p %>% layout(title = "NYMEX NG Prices",
+                 yaxis = list(title = ""),
+                 showlegend = FALSE) %>% config(displayModeBar = F)
   })
-
+  
   output$p2 <- renderPlotly({
-    if(input$goButton1 == 0){
+    if(input$goButton1 == 0 | input$visfwd == 0){
       return()
     }
-      
+    
     else {
       if(input$pwrseg == 'On Peak'){
         d <- event_data("plotly_click")
@@ -87,7 +89,10 @@ shinyServer(function(input, output, session){
           m <- fwd()$fwdData.cast[Date == unique(d[["x"]]), ]
           p <- add_markers(p, data = m, color = I("red"))
         }
-        p %>% layout(showlegend = FALSE)
+        p %>% layout(title = "On Peak Power Prices",
+                     xaxis = list(title = ""),
+                     yaxis = list(title = ""),
+                     showlegend = FALSE) %>% config(displayModeBar = F)
       } else{
         d <- event_data("plotly_click")
         p <- plot_ly(fwd()$fwdData.cast, x = ~ Date, y = ~ opPrice) %>%
@@ -96,12 +101,65 @@ shinyServer(function(input, output, session){
           m <- fwd()$fwdData.cast[Date == unique(d[["x"]]), ]
           p <- add_markers(p, data = m, color = I("red"))
         }
-        p %>% layout(showlegend = FALSE) %>% config(displayModeBar = F)
+        p %>% layout(title = "Off Peak Power Prices",
+                     xaxis = list(title = ""),
+                     yaxis = list(title = ""),
+                     showlegend = FALSE) %>% config(displayModeBar = F)
         
       }
     }
-
+  })
+  
+  fwdVol <- reactive({
+    if(input$goButton1 == 0 | input$visvol == 0)
+      return()
     
+    market <- c(unlist(strsplit(input$mktcomp, '-'))[c(TRUE, FALSE)], 'NYMEX')
+    component <- c(unlist(strsplit(input$mktcomp, '-'))[c(FALSE, TRUE)], 'NG')
+    fwdVolData <- as.data.table(monthlyPkVol.multi.rng(input$curvedaterange[1], input$curvedaterange[2],
+                                                       input$simrangemonth[1], input$simrangemonth[2],
+                                                       market = market, component = component))
+    fwdVolData <- fwdVolData[order(DELMO, CURVEDATE),]
+    fwdVolData[, ':=' (DELMO = as.character(format(DELMO, "%b%y")),
+                       MARKET = trimws(MARKET),
+                       COMPONENT = trimws(COMPONENT))]
+    fwdVolPwr <- fwdVolData[COMPONENT != 'NG', ]
+    fwdVolNG <- fwdVolData[COMPONENT == 'NG', ]
+    return(list(fwdVolPwr = fwdVolPwr, fwdVolNG = fwdVolNG))
+  })
+  
+  output$p3 <- renderPlotly({
+    if(input$goButton1 == 0 | input$visvol == 0)
+      return()
+    
+    d <- event_data("plotly_click")
+    p <- plot_ly(fwdVol()$fwdVolNG, x = ~ CURVEDATE, y = ~ VOLATILITY) %>%
+      add_lines(key = ~ DELMO, color = ~ DELMO)
+    if (!is.null(d)) {
+      m <- fwdVol()$fwdVolNG[CURVEDATE == unique(d[["x"]]), ]
+      p <- add_markers(p, data = m, color = I("red")) # text = ~paste("y"), clickinfo = "text")
+    }
+    p %>% layout(title = "NYMEX NG Volatility",
+                 xaxis = list(title = ""),
+                 yaxis = list(title = ""),
+                 showlegend = FALSE) %>% config(displayModeBar = F)
+  })
+  
+  output$p4 <- renderPlotly({
+    if(input$goButton1 == 0 | input$visvol == 0)
+      return()
+    
+    d <- event_data("plotly_click")
+    p <- plot_ly(fwdVol()$fwdVolPwr, x = ~ CURVEDATE, y = ~ VOLATILITY) %>%
+      add_lines(key = ~ DELMO, color = ~ DELMO)
+    if (!is.null(d)) {
+      m <- fwdVol()$fwdVolPwr[CURVEDATE == unique(d[["x"]]), ]
+      p <- add_markers(p, data = m, color = I("red")) # text = ~paste("y"), clickinfo = "text")
+    }
+    p %>% layout(title = "Peak Power Volatility",
+                 xaxis = list(title = ""),
+                 yaxis = list(title = ""),
+                 showlegend = FALSE) %>% config(displayModeBar = F)
   })
   
   output$correlation <- renderPlotly({
@@ -135,7 +193,7 @@ shinyServer(function(input, output, session){
                       sep = "."), 
             z = fwdData.cor, type = 'heatmap',
             colors = colorRamp(c('#e3dfc8', '#808c6c'))) %>% 
-      layout(title = "Correlation heatmap",
+      layout(title = "Correlation matrix (hover over to show value)",
              xaxis = list(title = ""),
              yaxis = list(title = ""),
              margin = list(l = 120, r = 50, b = 120, t = 50)) %>% config(displayModeBar = F)

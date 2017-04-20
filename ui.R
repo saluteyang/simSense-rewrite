@@ -21,6 +21,7 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                               selectInput("mktcomp", "Market-Component", c('ERCOT-ZONE N', 'PJM-WESTRT'),
                                           selected = 'ERCOT-ZONE N'),
                               checkboxInput("visfwd", "include plotting of forward price history", value = TRUE),
+                              checkboxInput("visvol", "include plotting of forward volatility", value = FALSE),
                               conditionalPanel(
                                 condition = "input.visfwd == true",
                                 selectInput("window", label = "Select backward looking window length for correlation heatmap",
@@ -61,6 +62,8 @@ shinyUI(navbarPage(theme = shinytheme("cerulean"),
                                          fluidRow(
                                            column(6, plotlyOutput("p1")),
                                            column(6, plotlyOutput("p2")),
+                                           column(6, plotlyOutput("p3")),
+                                           column(6, plotlyOutput("p4")),
                                            column(12, plotlyOutput("correlation"))
                                          )
                                          ),
