@@ -116,9 +116,9 @@ shinyServer(function(input, output, session){
     
     market <- c(unlist(strsplit(input$mktcomp, '-'))[c(TRUE, FALSE)], 'NYMEX')
     component <- c(unlist(strsplit(input$mktcomp, '-'))[c(FALSE, TRUE)], 'NG')
-    fwdVolData <- as.data.table(monthlyPkVol.multi.rng(input$curvedaterange[1], input$curvedaterange[2],
-                                                       input$simrangemonth[1], input$simrangemonth[2],
-                                                       market = market, component = component))
+    fwdVolData <- as.data.table(monthlyVol(f_curve_date = input$curvedaterange[1], t_curve_date = input$curvedaterange[2],
+                                           start_date = input$simrangemonth[1], end_date = input$simrangemonth[2],
+                                           market = market, component = component))
     fwdVolData <- fwdVolData[order(DELMO, CURVEDATE),]
     fwdVolData[, ':=' (DELMO = as.character(format(DELMO, "%b%y")),
                        MARKET = trimws(MARKET),
@@ -231,7 +231,8 @@ shinyServer(function(input, output, session){
       forspread2 <- forspread[Component == 'NG',]
       forspread2 <- dplyr::select(forspread2, Delmo, SimNo, Price)
       setnames(forspread2, 'Price', 'gasPrice')
-      forspread.fin <- join(forspread1, forspread2, by = c('Delmo', 'SimNo'), type = 'left')
+      forspread.fin <- left_join(forspread1, forspread2, by = c('Delmo', 'SimNo'))
+      forspread.fin <- as.data.table(forspread.fin)
       forspread.fin <- forspread.fin[, optPrice := ifelse(Price - gasPrice * HR - VOM > 0, 
                                                           Price - gasPrice * HR - VOM, 0)]
       return(forspread.fin)
@@ -247,9 +248,10 @@ shinyServer(function(input, output, session){
                                as.Date(timeDate::timeLastDayInMonth(input$aggrangemonth[2])))$time.segment
     spreadDates <- mutate(spreadDates, sumOffPk = sum7x8 + sum2x16)
     spreadDates <- spreadDates[, c('Delmo', 'sumPk', 'sumOffPk')]
-    spreadDates <- rename(spreadDates, c('sumPk' = 'pkPrice', 'sumOffPk' = 'opPrice'))
+    spreadDates <- rename(spreadDates, pkPrice = sumPk, opPrice = sumOffPk)
     spreadDates <- melt(spreadDates, measure = c('pkPrice', 'opPrice'), variable.name = 'Segment', value.name = 'Hrs')
-    spreadOptPeriod <- join(spreadOptPeriod, spreadDates, by = c('Delmo', 'Segment'), type = 'left')
+    spreadOptPeriod <- left_join(spreadOptPeriod, spreadDates, by = c('Delmo', 'Segment'))
+    spreadOptPeriod <- as.data.table(spreadOptPeriod)
     spreadOptPeriod <- spreadOptPeriod[, sumOptPrice := optPrice * Hrs]
     spreadOptPeriod <- spreadOptPeriod[, {
       monthPayoff = sum(sumOptPrice)
