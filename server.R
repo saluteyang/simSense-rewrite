@@ -1,10 +1,9 @@
 library(shiny)
 library(plotly)
-library(aligne)
+library(aligne2)
 library(ggplot2)
 library(scales)
 library(data.table)
-library(stringr)
 
 shinyServer(function(input, output, session){
 
