@@ -47,8 +47,8 @@ shinyServer(function(input, output, session){
     
     fwdData <- as.data.table(simOutput()$outputFwd)
     ifelse(input$pwrseg == 'On Peak',
-           fwdData <- fwdData[Segment != 'opPrice', ],
-           fwdData <- fwdData[Segment != 'pkPrice', ]
+           fwdData <- fwdData[Segment == 'pkPrice' | (Component == 'NG' & Segment == 'rtcPrice'), ],
+           fwdData <- fwdData[Segment == 'opPrice' | (Component == 'NG' & Segment == 'rtcPrice'), ]
     ) 
     fwdData.cast <- dcast(fwdData, Date + Delmo ~ Segment, value.var = 'Price')
     fwdData.cast <- fwdData.cast[complete.cases(fwdData.cast),]
