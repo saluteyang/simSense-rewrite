@@ -14,3 +14,5 @@ This consists of a tabPanel with user-set controls and a mainPanel which is made
 4. Distribution of strips of simulated prices for pricing financial instruments comprised of such strips
 
 5. Pricing/visualization of a particular kind of financial option commonly found in commodity trading markets
+
+![Alt text](/screenshot_price_sim_vis.jpg?raw=true)
